@@ -1,29 +1,57 @@
 <script setup>
-  import HelloWorld from './components/HelloWorld.vue'
-  import Versions from './components/Versions.vue'
+  import DrawingPanel from './components/DrawingPanel.vue';
+  import ReportPanel from './components/ReportPanel.vue';
+
+  
 </script>
 
 <template>
-  <div>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="common-layout">
+    <el-container>
+      <el-header class="header">
+        <h1>
+          Image Labeling Assistant
+        </h1>
+      </el-header>
+      <el-main class="main-area">
+        <el-row>
+          <el-col :span="18">
+            <DrawingPanel />
+          </el-col>
+          <el-col :span="6">
+            <ReportPanel />
+          </el-col>
+        </el-row>
+      </el-main>
+      <el-footer class="footer">
+        Copyright@TimberZhang@ISCAS-HCI
+      </el-footer>
+    </el-container>
   </div>
-  <HelloWorld msg="Vite + Vue" />
-  <Versions />
+
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+
+h1 {
+  font-weight: bold;
+  font-size: 32px;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+
+.header{
+  height: 10%;
+  border-radius: 1%;
+  background-color: rgba(114, 243, 153, 0.65);
 }
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+
+.footer {
+  height: 5%;
+  bottom: 0;
 }
+
+.main-area {
+  height: 85%;
+  overflow-y: false;
+}
+
 </style>

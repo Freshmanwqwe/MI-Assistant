@@ -20,6 +20,7 @@ function createWindow() {
       sandbox: false
     }
   });
+  mainWindow.setResizable(false);
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
   });

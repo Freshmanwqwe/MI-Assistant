@@ -22,6 +22,8 @@ function createWindow() {
     }
   })
 
+  mainWindow.setResizable(false);
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
