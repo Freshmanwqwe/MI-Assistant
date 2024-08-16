@@ -2,30 +2,35 @@
   "name": "mi-assistant",
   "private": true,
   "version": "0.0.0",
-  "type": "module",
   "main": "out/main/main.js",
   "scripts": {
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
-    "prebuild": "electron-vite build"
+    "prebuild": "electron-vite build",
+    "build": "electron-vite build",
+    "build:win": "npm run build && electron-builder --win --x64 --config",
+    "build:mac": "npm run build && electron-builder --mac --config",
+    "build:macarm": "npm run build && electron-builder --mac --arm64 --config",
+    "build:linux": "npm run build && electron-builder --linux --config"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
-    "electron": "31.1",
     "electron-toolkit": "^1.0.24",
     "element-plus": "^2.7.7",
     "vue": "^3.4.29",
     "vue-toast-notification": "^3.1.2"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.4.0",
     "@thomas.fortin/vue-draw-canvas": "^1.1.6",
     "@vitejs/plugin-vue": "^5.0.5",
+    "electron": "31.1",
+    "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
     "sass": "^1.77.8",
     "unplugin-auto-import": "^0.18.0",
     "unplugin-vue-components": "^0.27.3",
-    "vite": "^5.3.1",
-    "vue-drawing-canvas": "^1.0.14"
+    "vite": "^5.3.1"
   }
 }

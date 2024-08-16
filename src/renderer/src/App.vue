@@ -6,15 +6,13 @@
 </script>
 
 <template>
-  <div class="common-layout">
-    <el-container>
-      <el-header class="header">
-        <h1>
+  <div class="common-layout layout-style">
+    <el-container class="layout-style">
+      <el-header class="header style-color-2">
           Image Labeling Assistant
-        </h1>
       </el-header>
       <el-main class="main-area">
-        <el-row>
+        <el-row :gutter="20" class="main-row">
           <el-col :span="18">
             <DrawingPanel />
           </el-col>
@@ -23,7 +21,7 @@
           </el-col>
         </el-row>
       </el-main>
-      <el-footer class="footer">
+      <el-footer class="footer style-color-2">
         Copyright@TimberZhang@ISCAS-HCI
       </el-footer>
     </el-container>
@@ -33,25 +31,29 @@
 
 <style scoped>
 
-h1 {
-  font-weight: bold;
-  font-size: 32px;
+.layout-style {
+  height: 100%;
 }
 
-.header{
-  height: 10%;
-  border-radius: 1%;
-  background-color: rgba(114, 243, 153, 0.65);
+.header {
+  padding: 5px;
+  font-size: 32px;
+  font-weight: bolder;
 }
 
 .footer {
-  height: 5%;
-  bottom: 0;
+  height: 28px;
 }
 
 .main-area {
-  height: 85%;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  height: 80%;
   overflow-y: false;
+}
+
+.main-row {
+  height: 100%;
 }
 
 </style>

@@ -1,51 +1,52 @@
 <script>
-    import VueDrawingCanvas from "vue-drawing-canvas";
+    import VueDrawCanvas from "@thomas.fortin/vue-draw-canvas";
+    import { ref } from "vue"
+
+    const canvasWidth = ref(window.innerWidth * 0.68);
+    const canvasHeight = ref((canvasWidth.value / 16 )* 9);
 
     export default {
-        name: "ServeDev",
+        name: "DrawCanvas",
         components: {
-            VueDrawingCanvas,
+            VueDrawCanvas,
         },
         data() {
             return {
-            initialImage: [
-                {
-                type: "dash",
-                from: {
-                    x: 262,
-                    y: 154,
-                },
-                coordinates: [],
-                color: "#000000",
-                width: 5,
-                fill: false,
-                },
-            ],
-            x: 0,
-            y: 0,
-            image: "",
-            eraser: false,
-            disabled: false,
-            fillShape: false,
-            line: 5,
-            color: "#000000",
-            strokeType: "dash",
-            lineCap: "round",
-            lineJoin: "round",
-            backgroundColor: "#00000040",
-            backgroundImage: null,
-            watermark: null,
-            additionalImages: [],
+                initialImage: [],
+                width: canvasWidth,
+                height: canvasHeight,
+                x: 0,
+                y: 0,
+                image: "",
+                eraser:  false,
+                disabled: false,
+                fillShape: false,
+                line: 5,
+                color: "#00FF00",
+                strokeType: "dash",
+                lineCap: "round",
+                lineJoin: "round",
+                backgroundColor: "#FFFFFF",
+                backgroundImage: "",
+                watermark: null,
+                additionalImages: [],
             };
         },
         mounted() {
-            if ("vue-drawing-canvas" in window.localStorage) {
-            this.initialImage = JSON.parse(
-                window.localStorage.getItem("vue-drawing-canvas")
-            );
-            }
+            if ("VueDrawCanvas" in window.localStorage) {
+                this.initialImage = JSON.parse(
+                    window.localStorage.getItem("VueDrawCanvas")
+                );
+            };
+            // this.setImage("/Users/timberzhang/Documents/Documents/2024-MedImageAssistatnt/Code/ImageData/20240228-09-32-49/1020_ori.png")
         },
         methods: {
+            // async setImage(event) {
+            //     let URL = window.URL;
+            //     console.log(event.target.files[0]);
+            //     this.backgroundImage = URL.createObjectURL(event.target.files[0]);
+            //     await this.$refs.VueCanvasDrawing.redraw();
+            // },
             getCoordinate(event) {
                 let coordinates = this.$refs.VueCanvasDrawing.getCoordinates(event);
                 this.x = coordinates.x;
@@ -57,13 +58,13 @@
 
 <template>
     <el-col :span="24">
-        <el-row :span="24">
+        <el-row :span="24" justify="center" class="canvas-panel">
             <div class="canvas">
-                <vue-drawing-canvas
+                <VueDrawCanvas
                     ref="VueCanvasDrawing"
                     v-model:image="image"
-                    :width="600"
-                    :height="400"
+                    :width="width"
+                    :height="height"
                     :stroke-type="strokeType"
                     :line-cap="lineCap"
                     :line-join="lineJoin"
@@ -85,8 +86,8 @@
                 />
             </div>
         </el-row>
-        <el-row :span="24">
-            <el-col :span="4">
+        <el-row :span="24" class="btn-panel style-color-3">
+            <el-col :span="4" justify="center">
                 <button type="button" @click.prevent="disabled = !disabled">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +110,7 @@
                     <span v-else>Unlock</span>
                 </button>
             </el-col>
-            <el-col :span="4">
+            <el-col :span="4" justify="center">
                 <button type="button" @click.prevent="$refs.VueCanvasDrawing.undo()">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -130,7 +131,7 @@
                     Undo
                 </button>
             </el-col>
-            <el-col :span="4">
+            <el-col :span="4" justify="center">
                 <button type="button" @click.prevent="$refs.VueCanvasDrawing.reset()">
                     <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -147,54 +148,9 @@
                     Clear
                 </button>   
             </el-col>
-            <el-col :span="4">
+            <el-col :span="4" justify="center">
                 <button type="button" @click.prevent="eraser = !eraser">
                     <span v-if="eraser">
-                        <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        fill="currentColor"
-                        class="bi bi-pencil"
-                        viewBox="0 0 16 16"
-                        >
-                        <path
-                            d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"
-                        />
-                        </svg>
-                        Eraser
-                    </span>
-                    <span v-else>
-                        <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        fill="currentColor"
-                        class="bi bi-eraser"
-                        viewBox="0 0 16 16"
-                        >
-                        <path
-                            d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"
-                        />
-                        </svg>
-                        Draw
-                    </span>
-                    <span v-if="eraser">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        fill="currentColor"
-                        class="bi bi-eraser"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                        d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"
-                        />
-                    </svg>
-                    Eraser
-                    </span>
-                    <span v-else>
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="16"
@@ -209,12 +165,27 @@
                     </svg>
                     Draw
                     </span>
+                    <span v-else>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        fill="currentColor"
+                        class="bi bi-eraser"
+                        viewBox="0 0 16 16"
+                    >
+                        <path
+                        d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"
+                        />
+                    </svg>
+                    Eraser
+                    </span>
                 </button>
             </el-col>
-            <el-col :span="8"> 
+            <el-col :span="8" justify="center"> 
                 <div class="slider-demo-block">
                     <span class="demonstration">Size</span>
-                    <el-slider v-model="line" :step="10" show-stops />
+                    <el-slider v-model="line" :step="5" :min="5" :max="50" show-stops />
                 </div>
             </el-col>
         </el-row>
@@ -235,6 +206,10 @@ canvas {
     background-color: transparent;
     border-color: rgb(159, 242, 207);
     border-radius: 2%;
+}
+
+.canvas-panel {
+    padding: 10px;
 }
 
 .slider-demo-block {
@@ -264,6 +239,11 @@ canvas {
 }
 .slider-demo-block .demonstration + .el-slider {
     flex: 0 0 70%;
+}
+
+.btn-panel {
+    padding: 20px;
+    border-radius: 5px;
 }
 
 button {

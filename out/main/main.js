@@ -1,22 +1,19 @@
-import { app, ipcMain, BrowserWindow, screen, shell } from "electron";
-import { join } from "path";
-import { electronApp, optimizer, is } from "@electron-toolkit/utils";
-import __cjs_mod__ from "node:module";
-const __filename = import.meta.filename;
-const __dirname = import.meta.dirname;
-const require2 = __cjs_mod__.createRequire(import.meta.url);
+"use strict";
+const electron = require("electron");
+const path = require("path");
+const utils = require("@electron-toolkit/utils");
 function createWindow() {
-  const mainWindow = new BrowserWindow({
+  const mainWindow = new electron.BrowserWindow({
     // set the size of the window
-    width: screen.getPrimaryDisplay().workAreaSize.width,
-    height: screen.getPrimaryDisplay().workAreaSize.height,
+    width: electron.screen.getPrimaryDisplay().workAreaSize.width,
+    height: electron.screen.getPrimaryDisplay().workAreaSize.height,
     minWidth: 800,
     minHeight: 450,
     show: false,
     autoHideMenuBar: true,
     // ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.mjs"),
       sandbox: false
     }
   });
@@ -25,28 +22,28 @@ function createWindow() {
     mainWindow.show();
   });
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
+    electron.shell.openExternal(details.url);
     return { action: "deny" };
   });
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+  if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId("com.electron");
-  app.on("browser-window-created", (_, window) => {
-    optimizer.watchWindowShortcuts(window);
+electron.app.whenReady().then(() => {
+  utils.electronApp.setAppUserModelId("com.electron");
+  electron.app.on("browser-window-created", (_, window) => {
+    utils.optimizer.watchWindowShortcuts(window);
   });
-  ipcMain.on("ping", () => console.log("pong"));
+  electron.ipcMain.on("ping", () => console.log("pong"));
   createWindow();
-  app.on("activate", function() {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  electron.app.on("activate", function() {
+    if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
-app.on("window-all-closed", () => {
+electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    app.quit();
+    electron.app.quit();
   }
 });
