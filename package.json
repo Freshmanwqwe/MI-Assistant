@@ -1,5 +1,5 @@
 {
-  "name": "mi-assistant",
+  "name": "miaa",
   "private": true,
   "version": "0.0.0",
   "main": "out/main/main.js",
@@ -16,9 +16,13 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "axios": "^1.7.9",
     "electron-toolkit": "^1.0.24",
     "element-plus": "^2.7.7",
+    "js-yaml": "^4.1.0",
+    "pinia": "^2.3.1",
     "vue": "^3.4.29",
+    "vue-router": "^4.5.0",
     "vue-toast-notification": "^3.1.2"
   },
   "devDependencies": {

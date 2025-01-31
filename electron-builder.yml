@@ -1,5 +1,5 @@
-appId: com.medpichelper.app
-productName: MedicalImageHelper
+appId: com.iscashci.miaa
+productName: Miaa
 directories:
   buildResources: public
 files:
@@ -14,7 +14,7 @@ asarUnpack:
 afterSign: public/notarize.js
 win:
   executableName: vue-ts
-  icon: public/icon.ico
+  icon: public/eus.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -22,6 +22,7 @@ nsis:
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  icon: public/eus.ico
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.

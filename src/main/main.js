@@ -1,6 +1,23 @@
-import { app, shell, BrowserWindow, ipcMain , Menu, screen } from 'electron'
 import { join } from 'path'
+
+import { app, shell, BrowserWindow, ipcMain , Menu, screen, dialog } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
+import { createGlobalShortcuts } from './shortcuts'
+import EventRouters from './EventRouter/EventRouters'
+import routers from './EventRouter/router.list'
+import { createFolder, ensureConfigFile } from './utils'
+
+export const basePath = app.isPackaged ? app.getAppPath() : __dirname;
+export const configPath = join(app.getPath('appData'), '.medai')
+
+export const existedWindows = new Map()
+
+function initRunning () {
+  createFolder(configPath);
+  createFolder(join(configPath, 'test_configs'));
+  ensureConfigFile()
+}
 
 function createWindow() {
   // Create the browser window.
@@ -9,14 +26,18 @@ function createWindow() {
     // set the size of the window
     width: screen.getPrimaryDisplay().workAreaSize.width,
     height: screen.getPrimaryDisplay().workAreaSize.height,
-    minWidth: 800,
-    minHeight: 450,
+    minWidth: 1280,
+    minHeight: 720,
+    maxWidth: 2160,
+    maxHeight: 1440,
+    title: "Miaa",
 
     show: false,
     autoHideMenuBar: true,
     // ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true, // Ensure security
       sandbox: false
     }
   })
@@ -25,6 +46,20 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  existedWindows.set("main", mainWindow);
+
+  // add event routers
+  const eventRouters = new EventRouters();
+  eventRouters.addApi('app', app)
+  eventRouters.addApi('dialog', dialog)
+  eventRouters.addRouters(routers)
+  ipcMain.handle('renderer-to-main', (e, data)=>{
+    return eventRouters.route(data)
+  })
+  ipcMain.handle('renderer-to-main-async', async (e, data)=>{
+    return eventRouters.async_route(data)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -48,6 +83,11 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
+  // Initialize the running environment
+  initRunning()
+  // create global shortcuts
+  createGlobalShortcuts();
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -58,7 +98,7 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  createWindow()
+  createWindow();
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -75,6 +115,7 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
