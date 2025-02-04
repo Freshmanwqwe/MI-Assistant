@@ -2,6 +2,7 @@ import EventRouter from "./EventRouter";
 import { loadExistedTestList, loadConfig, saveConfig} from '../Functions/local.store'
 import {testAPI} from '../Functions/llm'
 import { createConfigWindow } from '../configView'
+import { createAddCatWindow } from "../addCatView";
 
 const routers = new Array();
 
@@ -37,6 +38,17 @@ routers.push(
         'event',
         (api, data={}) => {
             createConfigWindow();
+        }
+    )
+)
+
+
+routers.push(
+    new EventRouter(
+        'create-addcat',
+        'event',
+        (api, data={}) => {
+            createAddCatWindow();
         }
     )
 )

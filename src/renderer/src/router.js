@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router';
 import mainWindow from '@views/mainWin.vue';
 import configWindow from '@views/configWin.vue';
+import addCatWin from '@views/addCatWin.vue';
 
 const routes = [
   {
@@ -12,6 +13,11 @@ const routes = [
     path: '/config',  // Route for child window
     name: 'Config',
     component: configWindow,
+  },
+  {
+    path: '/addcat',  // Route for child window
+    name: 'AddCat',
+    component: addCatWin,
   },
 ];
 

@@ -2,7 +2,6 @@
 
 import { ref, reactive, computed } from 'vue'
 import 'element-plus/theme-chalk/display.css'
-import { storeToRefs } from "pinia";
 
 import { useTestListStore } from '@store/index'
 
@@ -20,7 +19,11 @@ const testListOptions = computed(() => testListStore.testListOptions);
 
 
 function addTest(){
-    console.log(window.localStorage.getItem("testList"))
+    window.api.invoke('renderer-to-main', {
+        name: "create-addcat",
+        event: "event",
+        data:{}
+    });
 }
 
 </script>
@@ -30,7 +33,7 @@ function addTest(){
         <el-row :span="24" class="report-aims style-color-2">
             <el-col :span="24">
                 <el-row>
-                    <h1 style="text-align: left;">Image Catelog Name</h1>
+                    <h1 style="text-align: left;">Image Catalog Name</h1>
                 </el-row>
                 <el-row :span="24">
                     <el-form :model="chosenTest" label-width="auto" style="width: 100%;">

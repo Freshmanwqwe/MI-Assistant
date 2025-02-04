@@ -1,7 +1,5 @@
 <script setup>
-    import { roleTypes } from 'element-plus'
     import { ref, reactive } from 'vue'
-    import axios from 'axios'
     
     const configForm = reactive({
         apiURL: '',

@@ -165,6 +165,50 @@ function createConfigWindow() {
     existedWindows.delete("config");
   });
 }
+function createAddCatWindow() {
+  if (existedWindows.has("addcat")) {
+    const existedAddCat = existedWindows.get("addcat");
+    existedAddCat.focus();
+    return -1;
+  }
+  const addCatWindow = new electron.BrowserWindow({
+    // set the size of the window
+    width: 1280,
+    height: 720,
+    title: "Miaa Create Image Catelog",
+    parent: existedWindows.get("main"),
+    // Set the parent window
+    // modal: true, // Makes the window modal
+    alwaysOnTop: true,
+    // Ensures the window stays on top
+    show: false,
+    autoHideMenuBar: true,
+    // ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: path$2.join(__dirname, "../preload/index.js"),
+      contextIsolation: true,
+      // Ensure security
+      sandbox: false
+    }
+  });
+  addCatWindow.setResizable(false);
+  addCatWindow.on("ready-to-show", () => {
+    addCatWindow.show();
+  });
+  addCatWindow.webContents.setWindowOpenHandler((details) => {
+    electron.shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+  if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    addCatWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/addcat");
+  } else {
+    addCatWindow.loadFile(resolve(path$2.join(__dirname, "../renderer/index.html#/addcat")));
+  }
+  existedWindows.set("addcat", addCatWindow);
+  addCatWindow.on("closed", () => {
+    existedWindows.delete("addcat");
+  });
+}
 const routers = new Array();
 routers.push(
   new EventRouter(
@@ -199,6 +243,15 @@ routers.push(
     "event",
     (api, data = {}) => {
       createConfigWindow();
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "create-addcat",
+    "event",
+    (api, data = {}) => {
+      createAddCatWindow();
     }
   )
 );
