@@ -1,15 +1,17 @@
 
 <script>
   import { ref, nextTick } from "vue";
-  import { ElMessage } from "element-plus";
-  
+  import { useCatlogAddingStore } from "@store/CatlogAddingStore"
+
   export default {
     setup() {
-      const isVisible = ref(true); // Show dialog
       const messages = ref([
         { role: "assistant", text: "Hi, I'm Miaa! Your AI Assistant helping you generate medical image description. Now I could help you generate a new set of key-points that meet your requirement of a specific medical image catalog, please let me know the catalog of the medical image." },
       ]);
       const userInput = ref("");
+
+      const CatlogAddingStore = useCatlogAddingStore()
+      
   
       // Send user message and get system response
       const sendMessage = async () => {
@@ -25,13 +27,44 @@
         // Scroll down after updating messages
         await nextTick();
         scrollToBottom();
-  
-        // Simulate system response (replace this with an API call)
-        setTimeout(() => {
-          const reply = `System received: "${userText}"`;
-          messages.value.push({ role: "assistant", text: reply });
-          nextTick().then(scrollToBottom);
-        }, 1000);
+        
+        messages.value.push({ role: "assistant", text: "Waiting..." });
+        nextTick().then(scrollToBottom);
+        const res = await window.api.invoke('renderer-to-main-async', {
+            name: "addcat-chat",
+            event: "asyncevent",
+            data:{
+                'apiURL': window.localStorage.getItem("apiURL"),
+                'apiKEY': window.localStorage.getItem("apiKEY"),
+                'request':{
+                    model: window.localStorage.getItem("MODEL"),
+                    messages: messages.value.reduce((acc, item) => {
+                        acc.push( {
+                            "role" : item.role,
+                            "content" : item.text
+                        });
+                        return acc;
+                    }, [])
+                }
+            }
+        });
+        messages.value.pop();
+        nextTick().then(scrollToBottom);
+        
+        try{
+          const regex = /<json>([\s\S]*?)<\/json>/;
+          const match = res.match(regex);
+          const res_json = JSON.parse(match[1]);
+          CatlogAddingStore.setList(res_json["key_points"])
+          if ("massage" in res_json){
+            messages.value.push({ role: "assistant", text: res_json["massage"] });
+          } else {
+            messages.value.push({ role: "assistant", text: "I have done the work, let me show you the key points below." });
+          }
+        } catch {
+          messages.value.push({ role: "assistant", text: res });
+        }
+        nextTick().then(scrollToBottom);
       };
   
       // Auto-scroll to the latest message
@@ -42,7 +75,7 @@
         }
       };
   
-      return { isVisible, messages, userInput, sendMessage };
+      return { messages, userInput, sendMessage, scrollToBottom};
     },
   };
 </script>
@@ -75,7 +108,7 @@
             </el-col>
         </el-row>
 
-        <el-row :spane style="height: 10px;"></el-row>
+        <el-row :span="24" style="height: 10px;"></el-row>
     
      </el-col>
     

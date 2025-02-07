@@ -28,8 +28,8 @@ function createWindow() {
     height: screen.getPrimaryDisplay().workAreaSize.height,
     minWidth: 1280,
     minHeight: 720,
-    maxWidth: 2160,
-    maxHeight: 1440,
+    maxWidth: 3860,
+    maxHeight: 2160,
     title: "Miaa",
 
     show: false,

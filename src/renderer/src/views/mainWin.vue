@@ -3,23 +3,35 @@ import DrawingPanel from '@renderer/components/DrawingPanel.vue';
 import ReportPanel from '@renderer/components/ReportPanel.vue';
 import {useTestListStore} from '@store/index'
 
-  const testList = await window.api.invoke('renderer-to-main-async', {
-      name: "testlist-get",
-      event: "asyncevent",
-      data:{}
-  });
-  const testListStore = useTestListStore()
-  testListStore.setList(testList);
-
-  const _config = await window.api.invoke('renderer-to-main-async', {
-      name: "request-config",
-      event: "asyncevent",
-      data:{}
-  });
-  for (const [key, value] of Object.entries(_config)) {
-      window.localStorage.setItem(key, value)
+  async function updateTestList() {
+    const testList = await window.api.invoke('renderer-to-main-async', {
+        name: "testlist-get",
+        event: "asyncevent",
+        data:{}
+    });
+    const testListStore = useTestListStore()
+    testListStore.setList(testList);
   }
 
+  async function fetchConfig() {
+    const _config = await window.api.invoke('renderer-to-main-async', {
+        name: "request-config",
+        event: "asyncevent",
+        data:{}
+    });
+    for (const [key, value] of Object.entries(_config)) {
+        window.localStorage.setItem(key, value)
+    }
+  }
+
+  updateTestList()
+  fetchConfig()
+  window.api.onMainMessage( (data)  => {
+    if (data.child==="addcat" && data.action==="closed") {
+      updateTestList()
+    }
+  });
+  
 </script>
 
 <template>

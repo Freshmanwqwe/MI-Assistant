@@ -1,15 +1,21 @@
 
 <script>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
+import { useCatlogAddingStore } from "@store/CatlogAddingStore"
+
 
 export default {
   setup() {
-    // Initial list (can be replaced with a fetched JSON object)
-    const itemList = ref([
-      { name: "Item 1", importance: "required", description: "Description 1" },
-      { name: "Item 2", importance: "optional", description: "Description 2" },
-    ]);
+    const cataddStore = useCatlogAddingStore();
+    const itemList = computed(() => cataddStore.points);
+    const dialogVisible = ref(false);
+    const nameInput = ref("");
+    const doneVisble = ref(false)
+
+    const openDialog = () => {
+      dialogVisible.value = true;
+    };
 
     // Add new item
     const addItem = () => {
@@ -23,27 +29,57 @@ export default {
 
     // Save list function
     const saveList = () => {
-      console.log("Saved list:", JSON.stringify(itemList.value, null, 2));
-      ElMessage.success("List saved successfully!");
+      window.api.invoke('renderer-to-main', {
+            name: "save-points",
+            event: "cevent",
+            data:{
+                'name': nameInput.value,
+                'points': JSON.stringify(itemList.value, null, 2)
+            }
+      });
+      doneVisble.value = true;
+      dialogVisible.value = false;
+      setTimeout(()=>{doneVisble.value = false}, 2000);
     };
 
-    return { itemList, addItem, removeItem, saveList };
+
+    return { itemList, cataddStore, dialogVisible, nameInput, doneVisble, addItem, removeItem, saveList, openDialog};
   },
+  computed:{
+    isEmpty() {
+      return this.cataddStore.getLength() === 0; // true when empty, false when not
+    }
+  }
 };
 </script>
 
 <template>
+  <el-dialog v-model="dialogVisible" title="Enter Name">
+    <el-input v-model="nameInput" placeholder="Enter the name of new catalog" />
+
+    <template #footer>
+      <el-button @click="dialogVisible = false">Cancel</el-button>
+      <el-button type="primary" @click="saveList">Save</el-button>
+    </template>
+  </el-dialog>
+
   <el-col :span="22" class="style-color-2 points-panel">
     <el-row :span="22" justify="center"  class="list-container">
       <!-- List Items -->
        <el-col :span="24">
+          <el-col v-show="isEmpty"><h1>Chat with Miaa to help you generate the key points.</h1></el-col>
+          <el-alert
+              v-show="doneVisble"
+              title="Successfully saved"
+              type="success"
+              description="More text description"
+              show-icon
+            />
           <el-col v-for="(item, index) in itemList" :key="index" class="list-item">
             <el-input 
-              v-model="item.name" 
+              v-model="item.title" 
               style="width: 22%;"
-              maxlength="20" 
               placeholder="Enter name"
-              show-word-limit
             />
             
 
@@ -55,7 +91,7 @@ export default {
             </el-radio-group>
 
             <el-input
-              v-model="item.description"
+              v-model="item.explanation"
               type="textarea"
               rows="1"
               resize="none"
@@ -75,7 +111,7 @@ export default {
       </el-col>
       <el-col :span="3">
         <!-- Save List -->
-        <el-button type="success" @click="saveList">Save List</el-button>
+        <el-button type="success" @click="openDialog">Save List</el-button>
       </el-col>
     </el-row>
 

@@ -2,7 +2,8 @@
 const electron = require("electron");
 const preload = require("@electron-toolkit/preload");
 const api = {
-  invoke: (channel, ...args) => electron.ipcRenderer.invoke(channel, ...args)
+  invoke: (channel, ...args) => electron.ipcRenderer.invoke(channel, ...args),
+  onMainMessage: (callback) => electron.ipcRenderer.on("main-to-renderer", (_, data) => callback(data))
 };
 if (process.contextIsolated) {
   try {

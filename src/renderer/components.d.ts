@@ -12,6 +12,7 @@ declare module 'vue' {
     ControlPanle: typeof import('./src/components/DrawingPanel/ControlPanle.vue')['default']
     DrawingPanel: typeof import('./src/components/DrawingPanel.vue')['default']
     DrawPanel: typeof import('./src/components/DrawingPanel/DrawPanel.vue')['default']
+    ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
     ElCol: typeof import('element-plus/es')['ElCol']

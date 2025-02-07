@@ -1,6 +1,6 @@
 import { join } from 'path'
 
-import { shell, BrowserWindow } from 'electron'
+import { shell, BrowserWindow, ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 
 import {existedWindows} from './main'
@@ -55,5 +55,6 @@ export function createAddCatWindow () {
 
     addCatWindow.on('closed', () => {
         existedWindows.delete("addcat");
+        existedWindows.get("main").webContents.send("main-to-renderer", {child:"addcat", action: "closed" });
     });
 }

@@ -1,6 +1,6 @@
 import EventRouter from "./EventRouter";
-import { loadExistedTestList, loadConfig, saveConfig} from '../Functions/local.store'
-import {testAPI} from '../Functions/llm'
+import { loadExistedTestList, loadConfig, saveConfig, savePoints} from '../Functions/local.store'
+import {testAPI, AddCatChat} from '../Functions/llm'
 import { createConfigWindow } from '../configView'
 import { createAddCatWindow } from "../addCatView";
 
@@ -77,6 +77,15 @@ routers.push(
     )
 )
 
+routers.push(
+    new EventRouter(
+        'save-points',
+        'event',
+        (api, data) => {
+            savePoints(data.data);
+        }
+    )
+)
 
 routers.push(
     new EventRouter(
@@ -88,5 +97,18 @@ routers.push(
         }
     )
 )
+
+routers.push(
+    new EventRouter(
+        'addcat-chat', // name
+        'asyncevent', // evnet
+        async (api, data={}) =>  {
+            const res = await AddCatChat(data.data);
+            return res;
+        }
+    )
+)
+
+
 
 export default routers;

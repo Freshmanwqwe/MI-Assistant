@@ -4,6 +4,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  onMainMessage: (callback) => ipcRenderer.on("main-to-renderer", (_, data) => callback(data)),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
@@ -11,9 +12,9 @@ const api = {
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
+    contextBridge.exposeInMainWorld('electron', electronAPI);
+    contextBridge.exposeInMainWorld('api', api);
+    } catch (error) {
     console.error(error)
   }
 } else {

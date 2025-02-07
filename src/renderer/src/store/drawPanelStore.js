@@ -1,4 +1,3 @@
-import { tr } from "element-plus/es/locales.mjs";
 import { defineStore } from "pinia";
 
 const useDrawPanelStore = defineStore('draw-panel', {

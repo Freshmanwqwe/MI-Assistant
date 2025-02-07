@@ -49,6 +49,16 @@ export async function saveConfig(config) {
   }
 }
 
+export async function savePoints(data) {
+  const config_file = path.join(configPath, "test_configs/"+data.name+".json")
+  try {
+    fs.writeFileSync(config_file, data.points, 'utf8');
+  } catch (error) {
+    console.error('Error ensuring config file:', error);
+  }
+}
+
+
 
 // Example Usage
 // const directoryPath = path.join(__dirname, 'your-directory'); // Replace with your directory

@@ -101,6 +101,49 @@ async function saveConfig(config) {
     console.error("Error ensuring config file:", error);
   }
 }
+async function savePoints(data) {
+  const config_file = path$1.join(configPath, "test_configs/" + data.name + ".json");
+  try {
+    fs$1.writeFileSync(config_file, data.points, "utf8");
+  } catch (error) {
+    console.error("Error ensuring config file:", error);
+  }
+}
+const sys_msg_addcat = {
+  "role": "system",
+  "content": `You are a specialized medical imaging report assistant. Your task is to generate a JSON-formatted list of essential key points for a medical imaging report based on a provided catalog. At first, you are encouraged to ask question (1-3 rounds) to let the medical image catalog to be more specific. Once you can organize the key points, follow these guidelines and return the JSON output only: 
+        1.Catalog Focus: Begin by reviewing the specific medical image catalog provided by the user. Tailor the key points to align with the characteristics and requirements of that catalog. 
+        2. Evidence-Based Guidelines (for Reference in Formulation Only): When formulating each key point, refer to established rules and best practices from recognized medical resources e.g. 
+        Fleischner Society Guidelines, ACR Appropriateness Criteria, Radiology: The Requisites, DICOM Standards, and so on. 
+        Use these resources as inspiration to ensure that the key points are in line with accepted medical standards. 
+        Note: You are encouraged to search for more reference for create the evidence guidelines. You do not need to include these reference names in your JSON output.
+        3. Output requirement (JSON Structure): The final output must be in valid JSON format envaloped by <json></json> tag. The JSON should include a top-level field (e.g., "catalog") that echoes the provided catalog description.
+        Include a "key_points" array where each key point is an object containing the following fields:
+        "title": A brief title for the key point.
+        "importance": A value indicating whether the key point is "required" or "optional".
+        "explanation": A clear, concise explanation of the significance of the key point.
+        4. Overall Tone: Maintain a neutral, professional tone throughout the response. Use precise and medically accurate language that is suitable for a professional audience (i.e., medical doctors).
+        
+
+Example Output:
+        <json>
+        {
+        "catalog": "Example: Chest X-ray",
+        "message" : "Thank you for the clarity, Zhang. Based on the specific focus on pancreatitis or pancreatic cancer during an EUS examination of the pancreas, here are the key points in JSON format",
+        "key_points": [
+            {
+            "title": "Lung Fields",
+            "importance": "required",
+            "explanation": "Evaluate the lung parenchyma for opacities, consolidation, and interstitial patterns to detect pathologies such as pneumonia or interstitial lung disease."
+            },
+            {
+            "title": "Cardiac Silhouette",
+            "importance": "optional",
+            "explanation": "Examine the size and contour of the heart to identify cardiomegaly or other cardiac abnormalities."
+            }
+        ]
+        }</json>`
+};
 async function testAPI(data) {
   var res = "";
   await axios({
@@ -108,6 +151,30 @@ async function testAPI(data) {
     method: "POST",
     data: {
       ...data.request
+    },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + data.apiKEY
+    }
+  }).then(function(response) {
+    res = response.data.choices[0].message.content;
+  }).catch(function(error) {
+    const errs = error.response.data.error;
+    res = error.status + "\n" + errs.code + " " + errs.message;
+  });
+  return res;
+}
+async function AddCatChat(data) {
+  var res = "";
+  const req = {
+    model: data.request.model,
+    messages: [sys_msg_addcat, ...data.request.messages]
+  };
+  await axios({
+    url: data.apiURL,
+    method: "POST",
+    data: {
+      ...req
     },
     headers: {
       "Content-Type": "application/json",
@@ -207,6 +274,7 @@ function createAddCatWindow() {
   existedWindows.set("addcat", addCatWindow);
   addCatWindow.on("closed", () => {
     existedWindows.delete("addcat");
+    existedWindows.get("main").webContents.send("main-to-renderer", { child: "addcat", action: "closed" });
   });
 }
 const routers = new Array();
@@ -277,11 +345,32 @@ routers.push(
 );
 routers.push(
   new EventRouter(
+    "save-points",
+    "event",
+    (api, data) => {
+      savePoints(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
     "test-api",
     "asyncevent",
     // evnet
     async (api, data) => {
       const res = await testAPI(data.data);
+      return res;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "addcat-chat",
+    // name
+    "asyncevent",
+    // evnet
+    async (api, data = {}) => {
+      const res = await AddCatChat(data.data);
       return res;
     }
   )
@@ -336,8 +425,8 @@ function createWindow() {
     height: electron.screen.getPrimaryDisplay().workAreaSize.height,
     minWidth: 1280,
     minHeight: 720,
-    maxWidth: 2160,
-    maxHeight: 1440,
+    maxWidth: 3860,
+    maxHeight: 2160,
     title: "Miaa",
     show: false,
     autoHideMenuBar: true,
