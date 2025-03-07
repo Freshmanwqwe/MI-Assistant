@@ -60,3 +60,9 @@ body {
     background-color: #f9f9f9;
   }
 }
+.point-tooltip {
+  width: 250px !important; /* Set your desired width */
+  white-space: normal; /* Allow text to wrap */
+  word-break: break-word;
+  font-size: large;
+}

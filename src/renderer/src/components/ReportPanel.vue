@@ -3,7 +3,7 @@
 import { ref, reactive, computed } from 'vue'
 import 'element-plus/theme-chalk/display.css'
 
-import { useTestListStore } from '@store/index'
+import { useTestListStore, usePointStore } from '@store/index'
 
 const summary_area = ref("")
 const recording_area = ref("")
@@ -14,8 +14,10 @@ const chosenTest = reactive({
     testName:''
 })
 const testListStore = useTestListStore()
-const testList = computed(() => testListStore.testList);
 const testListOptions = computed(() => testListStore.testListOptions);
+
+const pointsStore = usePointStore();
+const checkPoints = computed(() => pointsStore.points);
 
 
 function addTest(){
@@ -24,6 +26,31 @@ function addTest(){
         event: "event",
         data:{}
     });
+}
+
+function getStatusClass(required) {
+    return required === "required"
+    ? "red"
+    : required === "done"
+    ? "green"
+    : "yellow";
+}
+
+async function loadPoints(){
+    // const testName = chosenTest.testName;
+    const points = await window.api.invoke('renderer-to-main-async', {
+        name: "load-points",
+        event: "asyncevent",
+        data:{
+            "teatName":chosenTest.testName
+        }
+    });
+    if ("error" in points){
+        alert("Load Points File Failed");
+    }
+    else{
+        pointsStore.setPoints(points);
+    }
 }
 
 </script>
@@ -39,7 +66,11 @@ function addTest(){
                     <el-form :model="chosenTest" label-width="auto" style="width: 100%;">
                         <el-form-item>
                             <el-col :span="18">
-                                <el-select v-model="chosenTest.testName" placeholder="Please select your test">
+                                <el-select 
+                                    v-model="chosenTest.testName"
+                                    filterable
+                                    placeholder="Please select"
+                                    @change="loadPoints">
                                     <el-option v-for="option in testListOptions"
                                                 :key="option.key"
                                                 :label="option.label"
@@ -62,9 +93,27 @@ function addTest(){
         <el-row :span="24" class="report-items style-color-2">
             <h1 style="text-align: left;">Key Points</h1>
             <el-scrollbar class="scrollbar">
-                <p v-for="item in 20" :key="item" class="scrollbar-demo-item">
-                    {{ item }}
-                </p>
+                <div
+                v-for="point in checkPoints"
+                :key="point.title"
+                class="scrollbar-demo-item"
+                >
+                    <el-tooltip
+                        class="box-item"
+                        effect="dark"
+                        :content="point.explanation"
+                        placement="left"
+                        popper-class="point-tooltip"
+                    >
+                        <div class="scrollbar-item">
+                        <span
+                            class="status-light"
+                            :class="getStatusClass(point.importance)"
+                        ></span>
+                        <span style="font-size: large;">{{ point.title }}</span>
+                        </div>
+                    </el-tooltip>
+                </div>
             </el-scrollbar>
         </el-row>
 
@@ -92,14 +141,6 @@ function addTest(){
                     />
                 </el-tab-pane>
             </el-tabs>
-            <!-- <h1 style="text-align: left;">Auto Summary</h1>
-            <el-input
-                v-model="summary_area"
-                type="textarea"
-                resize="none"
-                :autosize="{ minRows: 7, maxRows: 7 }"
-                placeholder="Waiting for your speaking"
-            /> -->
         </el-row>
     </el-col>
 </template>
@@ -148,16 +189,18 @@ h1 {
 }
 
 .scrollbar {
+    width: 100%;
     max-height: v-bind(scrollbar_max);
 }
 
 .scrollbar-demo-item {
+    width: 95%;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: left;
     height: 50px;
     margin: 10px;
-    text-align: center;
+    text-align: left;
     border-radius: 4px;
     background: var(--el-color-primary-light-9);
     color: var(--el-color-primary);
@@ -173,5 +216,37 @@ h1 {
     color: #6b778c;
     font-size: 32px;
     font-weight: 600;
+}
+.scrollbar-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  width: 100%;
+}
+.box-item {
+  margin-top: 10px;
+}
+.point-tooltip {
+    width: 250px !important; /* Set your desired width */
+    white-space: normal; /* Allow text to wrap */
+    word-break: break-word;
+}
+.status-light {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+.red {
+  background-color: red;
+}
+
+.green {
+  background-color: green;
+}
+
+.yellow {
+  background-color: yellow;
 }
 </style>

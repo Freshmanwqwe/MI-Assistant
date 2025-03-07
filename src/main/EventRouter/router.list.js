@@ -1,5 +1,5 @@
 import EventRouter from "./EventRouter";
-import { loadExistedTestList, loadConfig, saveConfig, savePoints} from '../Functions/local.store'
+import { loadExistedTestList, loadConfig, saveConfig, savePoints, loadPoints} from '../Functions/local.store'
 import {testAPI, AddCatChat} from '../Functions/llm'
 import { createConfigWindow } from '../configView'
 import { createAddCatWindow } from "../addCatView";
@@ -83,6 +83,17 @@ routers.push(
         'event',
         (api, data) => {
             savePoints(data.data);
+        }
+    )
+)
+
+routers.push(
+    new EventRouter(
+        'load-points',
+        'asyncevent',
+        async (api, data) =>  {
+            const res = await loadPoints(data.data);
+            return res;
         }
     )
 )

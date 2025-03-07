@@ -33,6 +33,7 @@ declare module 'vue' {
     ElSlider: typeof import('element-plus/es')['ElSlider']
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     PointsTable: typeof import('./src/components/CatlogAdding/PointsTable.vue')['default']
     ReportPanel: typeof import('./src/components/ReportPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

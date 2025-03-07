@@ -109,6 +109,14 @@ async function savePoints(data) {
     console.error("Error ensuring config file:", error);
   }
 }
+async function loadPoints(data) {
+  const config_file = path$1.join(configPath, "test_configs/" + data.teatName);
+  try {
+    return JSON.parse(fs$1.readFileSync(config_file));
+  } catch (error) {
+    return { "error": true };
+  }
+}
 const sys_msg_addcat = {
   "role": "system",
   "content": `You are a specialized medical imaging report assistant. Your task is to generate a JSON-formatted list of essential key points for a medical imaging report based on a provided catalog. At first, you are encouraged to ask question (1-3 rounds) to let the medical image catalog to be more specific. Once you can organize the key points, follow these guidelines and return the JSON output only: 
@@ -349,6 +357,16 @@ routers.push(
     "event",
     (api, data) => {
       savePoints(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "load-points",
+    "asyncevent",
+    async (api, data) => {
+      const res = await loadPoints(data.data);
+      return res;
     }
   )
 );

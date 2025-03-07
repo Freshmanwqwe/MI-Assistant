@@ -58,6 +58,15 @@ export async function savePoints(data) {
   }
 }
 
+export async function loadPoints(data) {
+  const config_file = path.join(configPath, "test_configs/"+data.teatName)
+  try {
+    return JSON.parse(fs.readFileSync(config_file));
+  } catch (error) {
+    return {"error":true}
+  }
+}
+
 
 
 // Example Usage

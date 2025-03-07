@@ -32,3 +32,18 @@ export const useTestListStore = defineStore('testList',{
         }
     }
 })
+
+
+export const usePointStore = defineStore('points',{
+    state: () => ({
+        points: []
+    }),
+    getters:{
+        getPoints() { return self.points},
+    },
+    actions: {
+        setPoints(ref) {
+            this.points = ref;
+        }
+    }
+})
