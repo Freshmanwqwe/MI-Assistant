@@ -41,9 +41,9 @@ export default {
         this.iatWS = null;
         this.countdownInterval = null;
         const script = document.createElement('script');
-        script.src = '/dist/index.umd.js';
+        script.src = '/recorderTools/index.umd.js';
         script.onload = () => {
-            this.recorder = new window.RecorderManager("/dist");
+            this.recorder = new window.RecorderManager("/recorderTools");
             this.setupRecorderEvents();
         }
         document.head.appendChild(script);
