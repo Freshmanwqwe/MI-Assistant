@@ -370,7 +370,7 @@ export default {
                         </svg>
                         <span>Import</span>
                     </el-button>
-                    <el-button type="default" size="large" round class="speaking-btn" @click="toggleRecording">
+                    <el-button type="default" size="large" round class="speaking-btn" @mousedown="toggleRecording" @mouseup="toggleRecording">
                         <span v-if="this.getBtnText() === 'PressSpeaking'" style="display: inline-flex; align-items: center;">
                             <span>Press</span>
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
