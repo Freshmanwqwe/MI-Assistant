@@ -9,6 +9,4 @@ export default class EventRouter{
         this.callback = callback; 
     }
 } 
-    
-    
-    
+

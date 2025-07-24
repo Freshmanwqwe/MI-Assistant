@@ -13,6 +13,7 @@ export const configPath = join(app.getPath('appData'), '.medai')
 
 export const existedWindows = new Map()
 
+
 function initRunning () {
   createFolder(configPath);
   createFolder(join(configPath, 'test_configs'));

@@ -1,9 +1,11 @@
 <script lang="js" setup>
 
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import 'element-plus/theme-chalk/display.css'
 
 import { useTestListStore, usePointStore } from '@store/index'
+
+import { useMediaRecordingStore } from '@store/mediaRecordingStore'
 
 const summary_area = ref("")
 const recording_area = ref("")
@@ -18,6 +20,8 @@ const testListOptions = computed(() => testListStore.testListOptions);
 
 const pointsStore = usePointStore();
 const checkPoints = computed(() => pointsStore.points);
+
+const mediaRecordingStore = useMediaRecordingStore()
 
 
 function addTest(){
@@ -52,6 +56,13 @@ async function loadPoints(){
         pointsStore.setPoints(points);
     }
 }
+
+watch(
+    () => mediaRecordingStore.recognizedText,
+    (newVal) => {
+        recording_area.value = newVal || ""
+    }
+)
 
 </script>
 
