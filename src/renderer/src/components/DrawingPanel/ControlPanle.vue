@@ -217,6 +217,7 @@ export default {
                     },
                 }
                 this.iatWS.send(JSON.stringify(params))
+                this.mediaRecordingStore.toggleFinishRecording();
             }
 
             this.iatWS.onmessage = (e) => {
@@ -232,6 +233,7 @@ export default {
             this.iatWS.onclose = (e) => {
                 this.recorder.stop()
                 this.changeBtnStatus("CLOSED")
+                this.mediaRecordingStore.toggleFinishRecording();
             }
         },
         setupRecorderEvents() {

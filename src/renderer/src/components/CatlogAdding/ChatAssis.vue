@@ -12,7 +12,7 @@
 
       const CatlogAddingStore = useCatlogAddingStore()
       
-  
+      
       // Send user message and get system response
       const sendMessage = async () => {
         if (!userInput.value.trim()) return;
@@ -27,13 +27,13 @@
         // Scroll down after updating messages
         await nextTick();
         scrollToBottom();
-        
+  
         messages.value.push({ role: "assistant", text: "Waiting..." });
         nextTick().then(scrollToBottom);
         const res = await window.api.invoke('renderer-to-main-async', {
             name: "addcat-chat",
             event: "asyncevent",
-            data:{
+            data: {
                 'apiURL': window.localStorage.getItem("apiURL"),
                 'apiKEY': window.localStorage.getItem("apiKEY"),
                 'request':{
