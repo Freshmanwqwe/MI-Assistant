@@ -152,6 +152,13 @@ Example Output:
         ]
         }</json>`
 };
+const sys_msg_summarize = {
+  "role": "system",
+  "content": `You are a specialized medical imaging report assistant.
+    A medical imaging report is provided by user, please help summarize the report for the user.
+    Follow these guidelines:
+    1. Ouput the summary content ONLY.`
+};
 async function testAPI(data) {
   var res = "";
   await axios({
@@ -177,6 +184,30 @@ async function AddCatChat(data) {
   const req = {
     model: data.request.model,
     messages: [sys_msg_addcat, ...data.request.messages]
+  };
+  await axios({
+    url: data.apiURL,
+    method: "POST",
+    data: {
+      ...req
+    },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + data.apiKEY
+    }
+  }).then(function(response) {
+    res = response.data.choices[0].message.content;
+  }).catch(function(error) {
+    const errs = error.response.data.error;
+    res = error.status + "\n" + errs.code + " " + errs.message;
+  });
+  return res;
+}
+async function Summarize(data) {
+  var res = "";
+  const req = {
+    model: data.request.model,
+    messages: [sys_msg_summarize, ...data.request.messages]
   };
   await axios({
     url: data.apiURL,
@@ -389,6 +420,16 @@ routers.push(
     // evnet
     async (api, data = {}) => {
       const res = await AddCatChat(data.data);
+      return res;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "summarize-chat",
+    "asyncevent",
+    async (api, data = {}) => {
+      const res = await Summarize(data.data);
       return res;
     }
   )

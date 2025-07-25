@@ -32,3 +32,11 @@ export const sys_msg_addcat = {
         ]
         }</json>`
 }
+
+export const sys_msg_summarize = {
+    "role" : "system",
+    "content" : `You are a specialized medical imaging report assistant.
+    A medical imaging report is provided by user, please help summarize the report for the user.
+    Follow these guidelines:
+    1. Ouput the summary content ONLY.`,
+}

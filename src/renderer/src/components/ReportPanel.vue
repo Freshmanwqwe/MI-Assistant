@@ -9,6 +9,7 @@ import { useMediaRecordingStore } from '@store/mediaRecordingStore'
 
 const summary_area = ref("")
 const recording_area = ref("")
+const prev_recording = ref("")
 const activeName = ref('first')
 const scrollbar_max = ref(Math.floor(window.innerHeight*0.42)+'px')
 
@@ -40,6 +41,11 @@ function getStatusClass(required) {
     : "yellow";
 }
 
+function getSummaryDescription() {
+    if (recording_area.value != "") return "Waiting for response...";
+    return "Waiting for your speaking";
+}
+
 async function loadPoints(){
     // const testName = chosenTest.testName;
     const points = await window.api.invoke('renderer-to-main-async', {
@@ -57,10 +63,57 @@ async function loadPoints(){
     }
 }
 
+async function summarize(){
+    const message = [
+        { "role": "user", "content": mediaRecordingStore.recognizedText },
+    ];
+    const res = await window.api.invoke('renderer-to-main-async', {
+        name: 'summarize-chat',
+        event: 'asyncevent',
+        data:{
+            'apiURL': window.localStorage.getItem("apiURL"),
+            'apiKEY': window.localStorage.getItem("apiKEY"),
+            'request':{
+                model: window.localStorage.getItem("MODEL"),
+                messages: message,
+            }
+        }
+    });
+    return res;
+}
+
 watch(
     () => mediaRecordingStore.recognizedText,
     (newVal) => {
-        recording_area.value = newVal || ""
+        recording_area.value = prev_recording.value + (newVal || "")
+    }
+)
+
+watch(
+    () => mediaRecordingStore.finishRecording,
+    (newVal) => {
+        if (newVal === true) {
+            prev_recording.value = recording_area.value;
+        }
+    }
+)
+
+watch(
+    () => activeName.value,
+    async (newVal) => {
+        if (newVal === 'second' && recording_area.value != "") {
+            const result = await summarize();
+            summary_area.value = result;
+        }
+    }
+)
+
+watch(
+    () => recording_area.value,
+    async (newVal) => {
+        if (mediaRecordingStore.finishRecording == true) {
+            prev_recording.value = newVal;
+        }
     }
 )
 
@@ -133,16 +186,7 @@ watch(
 
         <el-row :span="24" class="report-summary style-color-2">
             <el-tabs v-model="activeName" class="demo-tabs" type="border-card">
-                <el-tab-pane label="Auto Summary" name="first" style="width: 100%;">
-                    <el-input
-                        v-model="summary_area"
-                        type="textarea"
-                        resize="none"
-                        :autosize="{ minRows: 7, maxRows: 7 }"
-                        placeholder="Waiting for your speaking"
-                    />
-                </el-tab-pane>
-                <el-tab-pane label="Raw Speaking" name="second" style="width: 100%;">
+                <el-tab-pane label="Raw Speaking" name="first" style="width: 100%;">
                     <el-input
                         v-model="recording_area"
                         type="textarea"
@@ -151,11 +195,20 @@ watch(
                         placeholder="Waiting for your speaking"
                     />
                 </el-tab-pane>
+                <el-tab-pane label="Auto Summary" name="second" style="width: 100%;">
+                    <el-input
+                        v-model="summary_area"
+                        type="textarea"
+                        resize="none"
+                        :autosize="{ minRows: 7, maxRows: 7 }"
+                        :placeholder=getSummaryDescription()
+                    />
+                </el-tab-pane>
             </el-tabs>
         </el-row>
     </el-col>
 </template>
-  
+
 <style scoped>
 
 h1 {
