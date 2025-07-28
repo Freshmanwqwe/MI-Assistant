@@ -155,9 +155,60 @@ Example Output:
 const sys_msg_summarize = {
   "role": "system",
   "content": `You are a specialized medical imaging report assistant.
-    A medical imaging report is provided by user, please help summarize the report for the user.
+    A medical imaging report and keypoints the report has to be mentioned are provided by user. Your task is to summarize the report with those keypoints(some of the key points might not be mentioned & keypoints might be empty) for the user.
     Follow these guidelines:
-    1. Ouput the summary content ONLY.`
+         1. The message you will receive is in json format. In the top-level field of the JSON, there exists two fields "report" and "keypoints". "report" contains the raw content of the medical imaging report, while "keypoints" is a array where each key point is an object containing the following fields:
+        "title": A brief title for the key point.
+        "importance": A value indicating whether the key point is "required" or "optional".
+        "explanation": A clear, concise explanation of the significance of the key point.
+        2. Ouput requirement: The final output has to be in valid json format envaloped by <json></json> tag. The ouput must include 2 fields: "message" and "summary".
+        3. "summary" field has to include your summary for the report ONLY.
+        4. Overall Tone: Maintain a neutral, professional tone throughout the response. Use precise and medically accurate language that is suitable for a professional audience (i.e., medical doctors).
+        
+
+Example Ouput:
+        <json> {
+            "message": "Thank you for the report and keypoints. According to the keypoints, here is the summary shared for you.",
+            "summary": "blablabla"
+        }</json>
+        `
+};
+const sys_msg_updkeys = {
+  "role": "system",
+  "content": `You are a specialized medical imaging report assistant.
+    A medical imaging report and a set of keypoints are provided by user. Your task is to determine whether those key points are mentioned in the report.
+    Follow these guidelines:
+        1. The message you will receive is in json format. In the top-level field of the JSON, there exists two fields "report" and "keypoints". "report" contains the raw content of the medical imaging report, while "keypoints" is a array where each key point is an object containing the following fields:
+        "title": A brief title for the key point.
+        "importance": A value indicating whether the key point is "required" or "optional".
+        "explanation": A clear, concise explanation of the significance of the key point.
+        2. For every single keypoint, according to its name and explanation, determine whether it is mentioned in the given report.
+        3. Ouput requirement: The final output has to be in valid json format envaloped by <json></json> tag. Ouput JSON is based on the "keypoints" field in the input JSON. For every keypoint, if it is mentioned in the report, modify the value of "importance" field to "done", otherwise keep the value of "importance" field as what it was.
+        4. A keypoint is mentioned doesnt mean the keypoint is mentioned exactly word-for-word or letter-for-letter.
+        
+
+Example Ouput:
+        <json> {
+            "message": "Thank you for your report. Let me check whether your report mentioned the provided keypoints."
+            "key_points": [
+                {
+                "title": "Lung Fields",
+                "importance": "done",
+                "explanation": "Evaluate the lung parenchyma for opacities, consolidation, and interstitial patterns to detect pathologies such as pneumonia or interstitial lung disease."
+                },
+                {
+                "title": "Cardiac Silhouette",
+                "importance": "optional",
+                "explanation": "Examine the size and contour of the heart to identify cardiomegaly or other cardiac abnormalities."
+                },
+                {
+                "title": "Radiology",
+                "importance": "required",
+                "explanation": "Utilize various imaging technologies (such as X-ray, CT, MRI, ultrasound, etc.) for the visualization and diagnosis of internal structures of the human body."
+                }
+        ]
+        }</json>
+        `
 };
 async function testAPI(data) {
   var res = "";
@@ -208,6 +259,30 @@ async function Summarize(data) {
   const req = {
     model: data.request.model,
     messages: [sys_msg_summarize, ...data.request.messages]
+  };
+  await axios({
+    url: data.apiURL,
+    method: "POST",
+    data: {
+      ...req
+    },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + data.apiKEY
+    }
+  }).then(function(response) {
+    res = response.data.choices[0].message.content;
+  }).catch(function(error) {
+    const errs = error.response.data.error;
+    res = error.status + "\n" + errs.code + " " + errs.message;
+  });
+  return res;
+}
+async function Updkeys(data) {
+  var res = "";
+  const req = {
+    model: data.request.model,
+    messages: [sys_msg_updkeys, ...data.request.messages]
   };
   await axios({
     url: data.apiURL,
@@ -430,6 +505,16 @@ routers.push(
     "asyncevent",
     async (api, data = {}) => {
       const res = await Summarize(data.data);
+      return res;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "updkeys-chat",
+    "asyncevent",
+    async (api, data = {}) => {
+      const res = await Updkeys(data.data);
       return res;
     }
   )

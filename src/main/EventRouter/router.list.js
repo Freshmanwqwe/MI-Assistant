@@ -1,6 +1,6 @@
 import EventRouter from "./EventRouter";
 import { loadExistedTestList, loadConfig, saveConfig, savePoints, loadPoints} from '../Functions/local.store'
-import { testAPI, AddCatChat, Summarize } from '../Functions/llm'
+import { testAPI, AddCatChat, Summarize, Updkeys } from '../Functions/llm'
 import { createConfigWindow } from '../configView'
 import { createAddCatWindow } from "../addCatView";
 
@@ -126,6 +126,17 @@ routers.push(
         'asyncevent',
         async (api, data={}) => {
             const res = await Summarize(data.data);
+            return res;
+        }
+    )
+)
+
+routers.push(
+    new EventRouter(
+        'updkeys-chat',
+        'asyncevent',
+        async (api, data={}) => {
+            const res = await Updkeys(data.data);
             return res;
         }
     )
