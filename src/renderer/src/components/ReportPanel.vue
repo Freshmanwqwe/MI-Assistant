@@ -24,7 +24,7 @@ const checkPoints = computed(() => pointsStore.points);
 
 const mediaRecordingStore = useMediaRecordingStore()
 
-const updateStatus = ref('empty')
+const updateStatus = ref('Unload')
 
 let timer = null
 
@@ -64,8 +64,7 @@ async function loadPoints() {
     }
     else {
         pointsStore.setPoints(points);
-        updateStatus.value = 'loaded';
-        console.log(updateStatus.value);
+        updateStatus.value = 'Loaded';
     }
 }
 
@@ -111,7 +110,8 @@ async function summarize() {
 }
 
 async function updateKeypoints() {
-    updateStatus.value = 'updating';
+    if (updateStatus.value == "Unload") {return ;}
+    updateStatus.value = 'Updating';
     const points = pointsStore.points;
     const userText = {
         'report': recording_area.value,
@@ -145,7 +145,7 @@ async function updateKeypoints() {
         const match = res.match(regex);
         const res_json = JSON.parse(match[1]);
         pointsStore.setPoints(res_json["key_points"]);
-        updateStatus.value = 'updated';
+        updateStatus.value = 'Updated';
     } catch (error) {
         console.error("Parse json failed: ", error);
     }
@@ -282,6 +282,7 @@ h1 {
 .status-indicator {
     display: flex;
     background-color: white;
+    color: black;
     padding: 5px;
     padding-left: 10px;
     padding-right: 10px;
