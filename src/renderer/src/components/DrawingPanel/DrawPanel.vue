@@ -34,6 +34,8 @@
                 watermark: null,
                 additionalImages: [],
                 imageSrc: "",
+                currentImgURL: "",
+                canvasStore: null,
             };
         },
         computed: {
@@ -48,6 +50,10 @@
             canvasLine() {
                 const store = useDrawPanelStore();
                 return store.canvasLine; // This value is reactive
+            },
+            canvasBackground() {
+                const store = useDrawPanelStore();
+                return store.canvasBackground;
             }
         },
         watch: {
@@ -60,25 +66,68 @@
             },
             canvasLine(newValue) {
                 this.line = newValue;
+            },
+            async canvasBackground(newValue) {
+                this.$refs.VueCanvasDrawing.reset();
+                if (newValue) {
+                    const fitImg = await this.resizeImageToFitCanvas(
+                        newValue,
+                        this.width,
+                        this.height
+                    );
+                    this.backgroundImage = fitImg;
+                } else {
+                    this.backgroundImage = "";
+                }
+                await this.$refs.VueCanvasDrawing.redraw();
             }
         },
         mounted() {
-            const canvasStore = useDrawPanelStore();
-            canvasStore.setCanvasRef(this.$refs.VueCanvasDrawing);
+            this.canvasStore = useDrawPanelStore();
+            this.canvasStore.setCanvasRef(this.$refs.VueCanvasDrawing);
         },
         destroyed() {
         },
         methods: {
-            async setImage(event) {
-                let URL = window.URL;
-                this.backgroundImage = URL.createObjectURL(event.target.files[0]);
-                await this.$refs.VueCanvasDrawing.redraw();
-            },
             getCoordinate(event) {
                 let coordinates = this.$refs.VueCanvasDrawing.getCoordinates(event);
                 this.x = coordinates.x;
                 this.y = coordinates.y;
             },
+            resizeImageToFitCanvas(imageUrl, canvasWidth, canvasHeight) {
+                return new Promise((resolve, reject) => {
+                    const img = new window.Image();
+                    img.crossOrigin = 'anonymous'; // 避免跨域问题
+                    img.onload = function () {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = canvasWidth;
+                        canvas.height = canvasHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        // 等比缩放并居中
+                        const scale = Math.min(
+                            canvasWidth / img.width,
+                            canvasHeight / img.height
+                        );
+                        const newWidth = img.width * scale;
+                        const newHeight = img.height * scale;
+                        const offsetX = (canvasWidth - newWidth) / 2;
+                        const offsetY = (canvasHeight - newHeight) / 2;
+
+                        ctx.fillStyle = "#fff";
+                        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                        ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
+
+                        resolve(canvas.toDataURL());
+                    };
+                    img.onerror = reject;
+                    img.src = imageUrl;
+                });
+            },
+            onImageUpdate(URL) {
+                if (this.canvasStore) this.canvasStore.setCurrentImgURL(URL);
+            }
         }
     };
 </script>
@@ -104,12 +153,15 @@
                     :watermark="watermark"
                     :initial-image="initialImage"
                     saveAs="png"
+                    :output-width="width"
+                    :output-height="height"
                     :styles="{
-                    border: 'solid 1px #000',
+                        border: 'solid 1px #000',
                     }"
                     :lock="disabled"
                     @mousemove="getCoordinate($event)"
                     :additional-images="additionalImages"
+                    @update:image="onImageUpdate"
                 />
             </div>
         </el-row>
@@ -124,7 +176,7 @@ h1 {
 }
 
 canvas {
-    width: 100%;
+    /* width: 100%; */
     background-color: transparent;
     border-color: rgb(159, 242, 207);
     border-radius: 2%;
