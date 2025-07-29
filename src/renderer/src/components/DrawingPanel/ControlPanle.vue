@@ -12,6 +12,8 @@ export default {
             canvasEraser: false,
             canvasDisable: false,
             canvasLine: 5,
+            canvasBackgroundImages: [],
+            canvasBackgroundId: 0,
             strokes: [],
             
             btnStatus: "UNDEFINED", // "UNDEFINED" "CONNECTING" "OPEN" "CLOSING" "CLOSED"
@@ -271,6 +273,33 @@ export default {
                 this.recorder.stop()
             }
         },
+        setImage(event) {
+            this.canvasBackgroundImages = [];
+            const files = event.target.files;
+            let URL = window.URL;
+            for (let i = 0; i < files.length; ++i) {
+                const file = URL.createObjectURL(files[i]);
+                this.canvasBackgroundImages.push(file);
+            }
+            this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[0]);
+            this.canvasBackgroundId = 0;
+        },
+        loadPreviousImage() {
+            if (this.canvasBackgroundId - 1 < 0) return;
+            let idex = --this.canvasBackgroundId;
+            this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+        },
+        loadNextImage() {
+            if (this.canvasBackgroundId + 1 >= this.canvasBackgroundImages.length) return;
+            let idex = ++this.canvasBackgroundId;
+            this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+        },
+        exportImage() {
+            const link = document.createElement('a');
+            link.href = this.canvasStore.currentImgURL;
+            link.download = "image.png";
+            link.click();
+        }
     }
 };
 </script>
@@ -356,7 +385,7 @@ export default {
         <el-row :span="24" justify="center">
             <el-col :span="20">
                 <el-button-group class="btn-group">
-                    <el-button type="default" size="large" round>
+                    <el-button type="default" size="large" round @click.prevent="loadPreviousImage()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                             class="bi bi-arrow-left-square" viewBox="0 0 16 16" style="margin: 3px">
                             <path fill-rule="evenodd"
@@ -364,7 +393,15 @@ export default {
                         </svg>
                         <span>Previous</span>
                     </el-button>
-                    <el-button type="default" size="large" round>
+                    <input
+                        ref="fileInput"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        @change="setImage"
+                        style="display: none;"
+                    >
+                    <el-button type="default" size="large" round @click.prevent="$refs.fileInput.click()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                             class="bi bi-folder" viewBox="0 0 16 16" style="margin: 3px">
                             <path
@@ -387,7 +424,7 @@ export default {
                             <span>{{ getBtnText() }}</span>
                         </span>
                     </el-button>
-                    <el-button type="default" size="large" round>
+                    <el-button type="default" size="large" round @click.prevent="exportImage()">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                             class="bi bi-file-earmark-richtext" viewBox="0 0 16 16" style="margin: 3px">
                             <path
@@ -397,7 +434,7 @@ export default {
                         </svg>
                         <span>Export</span>
                     </el-button>
-                    <el-button type="default" size="large" round>
+                    <el-button type="default" size="large" round @click.prevent="loadNextImage()">
                         <span>Next</span>
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
                             class="bi bi-arrow-right-square" viewBox="0 0 16 16" style="margin: 3px">
