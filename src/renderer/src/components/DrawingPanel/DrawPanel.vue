@@ -36,6 +36,10 @@
                 imageSrc: "",
                 currentImgURL: "",
                 canvasStore: null,
+
+                previousBackgroundID: 0,
+                currentBackgroundID: 0,
+                history: {},
             };
         },
         computed: {
@@ -68,7 +72,12 @@
                 this.line = newValue;
             },
             async canvasBackground(newValue) {
+                const store = useDrawPanelStore();
+                this.previousBackgroundID = this.currentBackgroundID;
+                this.currentBackgroundID = store.canvasBackgroundID;
+                this.saveCanvasData();
                 this.$refs.VueCanvasDrawing.reset();
+
                 if (newValue) {
                     const fitImg = await this.resizeImageToFitCanvas(
                         newValue,
@@ -79,7 +88,11 @@
                 } else {
                     this.backgroundImage = "";
                 }
-                await this.$refs.VueCanvasDrawing.redraw();
+                await this.$refs.VueCanvasDrawing.redraw(true);
+                await this.$nextTick();
+                
+                await this.loadCanvasData();
+                await this.$refs.VueCanvasDrawing.redraw(true);
             }
         },
         mounted() {
@@ -127,6 +140,40 @@
             },
             onImageUpdate(URL) {
                 if (this.canvasStore) this.canvasStore.setCurrentImgURL(URL);
+            },
+            saveCanvasData() {
+                const drawer = this.$refs.VueCanvasDrawing;
+                const canvasStrokes = JSON.parse(JSON.stringify(drawer.getAllStrokes()));
+                const canvasImages = JSON.parse(JSON.stringify(drawer.images));
+                const canvasTrash = JSON.parse(JSON.stringify(drawer.trash));
+                this.history[this.previousBackgroundID] = {
+                    strokes: canvasStrokes,
+                    images: canvasImages,
+                    trash: canvasTrash,
+                };
+                window.api.invoke('renderer-to-main', {
+                    name: "save-history",
+                    event: "cevent",
+                    data:{
+                        'history': JSON.parse(JSON.stringify(this.history)),
+                    }
+                });
+            },
+            async loadCanvasData() {
+                const readHistory = await window.api.invoke('renderer-to-main-async', {
+                    name: "load-history",
+                    event: "asyncevent",
+                    data:{}
+                });
+                this.history = readHistory["history"];
+                const drawer = this.$refs.VueCanvasDrawing;
+                const canvasData = this.history[this.currentBackgroundID] || {
+                    strokes: [],
+                    images: [],
+                    trash: [],
+                };
+                drawer.images = [].concat(canvasData.images, drawer.images);
+                drawer.trash = canvasData.trash;
             }
         }
     };
@@ -176,7 +223,7 @@ h1 {
 }
 
 canvas {
-    /* width: 100%; */
+    width: 100%;
     background-color: transparent;
     border-color: rgb(159, 242, 207);
     border-radius: 2%;

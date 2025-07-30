@@ -49,6 +49,36 @@ export async function saveConfig(config) {
   }
 }
 
+export async function loadHistory() {
+  const history_file = path.join(configPath, "history.json")
+  try {
+    if (!fs.existsSync(history_file)) {
+        console.warn('History file not found:', history_file);
+        return {};
+    }
+    
+    // Read and parse the JSON file
+    const historyContent = fs.readFileSync(history_file, 'utf-8');
+    const history = JSON.parse(historyContent);
+
+    return history;
+  } catch (error) {
+      console.error('Error loading history:', error);
+      return {};
+  }
+}
+
+export async function saveHistory(history) {
+  const history_file = path.join(configPath, 'history.json');
+  try {
+    const historyContent = JSON.stringify(history);
+    // console.log(historyContent);
+    fs.writeFileSync(history_file, historyContent, 'utf-8');
+  } catch (error) {
+    console.error('Error ensuring history file:', error);
+  }
+}
+
 export async function savePoints(data) {
   const config_file = path.join(configPath, "test_configs/"+data.name+".json")
   try {
