@@ -101,6 +101,30 @@ async function saveConfig(config) {
     console.error("Error ensuring config file:", error);
   }
 }
+async function loadHistory() {
+  const history_file = path$1.join(configPath, "history.json");
+  try {
+    if (!fs$1.existsSync(history_file)) {
+      console.warn("History file not found:", history_file);
+      return {};
+    }
+    const historyContent = fs$1.readFileSync(history_file, "utf-8");
+    const history = JSON.parse(historyContent);
+    return history;
+  } catch (error) {
+    console.error("Error loading history:", error);
+    return {};
+  }
+}
+async function saveHistory(history) {
+  const history_file = path$1.join(configPath, "history.json");
+  try {
+    const historyContent = JSON.stringify(history);
+    fs$1.writeFileSync(history_file, historyContent, "utf-8");
+  } catch (error) {
+    console.error("Error ensuring history file:", error);
+  }
+}
 async function savePoints(data) {
   const config_file = path$1.join(configPath, "test_configs/" + data.name + ".json");
   try {
@@ -459,6 +483,25 @@ routers.push(
 );
 routers.push(
   new EventRouter(
+    "load-history",
+    "asyncevent",
+    async (api, data = {}) => {
+      const history = await loadHistory();
+      return history;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "save-history",
+    "event",
+    (api, data) => {
+      saveHistory(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
     "save-points",
     "event",
     (api, data) => {
@@ -554,6 +597,21 @@ function ensureConfigFile() {
     console.error("Error ensuring config file:", error);
   }
 }
+function ensureHistoryFile() {
+  const history_file = path.join(configPath, "history.json");
+  try {
+    if (!fs.existsSync(history_file)) {
+      console.log("History file not found. Creating a new one...");
+      const yamlContent = yaml.dump(defaultConfig);
+      fs.writeFileSync(history_file, yamlContent, "utf8");
+      console.log("History file created successfully.");
+    } else {
+      console.log("History file exists:", history_file);
+    }
+  } catch (error) {
+    console.error("Error ensuring history file:", error);
+  }
+}
 const basePath = electron.app.isPackaged ? electron.app.getAppPath() : __dirname;
 const configPath = path$2.join(electron.app.getPath("appData"), ".medai");
 const existedWindows = /* @__PURE__ */ new Map();
@@ -561,6 +619,7 @@ function initRunning() {
   createFolder(configPath);
   createFolder(path$2.join(configPath, "test_configs"));
   ensureConfigFile();
+  ensureHistoryFile();
 }
 function createWindow() {
   const mainWindow = new electron.BrowserWindow({

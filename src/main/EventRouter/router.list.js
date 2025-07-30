@@ -1,5 +1,5 @@
 import EventRouter from "./EventRouter";
-import { loadExistedTestList, loadConfig, saveConfig, savePoints, loadPoints} from '../Functions/local.store'
+import { loadExistedTestList, loadConfig, saveConfig, loadHistory, saveHistory, savePoints, loadPoints} from '../Functions/local.store'
 import { testAPI, AddCatChat, Summarize, Updkeys } from '../Functions/llm'
 import { createConfigWindow } from '../configView'
 import { createAddCatWindow } from "../addCatView";
@@ -66,7 +66,6 @@ routers.push(
 )
 
 
-
 routers.push(
     new EventRouter(
         'save-config',
@@ -76,6 +75,30 @@ routers.push(
         }
     )
 )
+
+
+routers.push(
+    new EventRouter(
+        'load-history',
+        'asyncevent',
+        async (api, data={}) =>  {
+            const history = await loadHistory();
+            return history;
+        }
+    )
+)
+
+
+routers.push(
+    new EventRouter(
+        'save-history',
+        'event',
+        (api, data) => {
+            saveHistory(data.data);
+        }
+    )
+)
+
 
 routers.push(
     new EventRouter(

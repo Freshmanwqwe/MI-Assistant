@@ -2,6 +2,18 @@
 import useDrawPanelStore from '@store/drawPanelStore';
 import { useMediaRecordingStore } from '@store/mediaRecordingStore';
 
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 export default {
     name: "CanvasControler",
     components: {
@@ -19,10 +31,11 @@ export default {
             btnStatus: "UNDEFINED", // "UNDEFINED" "CONNECTING" "OPEN" "CLOSING" "CLOSED"
             resultText: "",
             resultTextTemp: "",
-            seconds: 60
+            seconds: 60,
+
+            isSwitching: false,
         };
     },
-
     mounted() {
         const canvasStore = useDrawPanelStore();
         // const canvasRef = canvasStore.canvasRef;
@@ -275,31 +288,67 @@ export default {
         },
         setImage(event) {
             this.canvasBackgroundImages = [];
-            const files = event.target.files;
+            const files = Array.from(event.target.files);
+            const imgFiles = files.filter(file => file.type.startsWith('image/'));
             let URL = window.URL;
-            for (let i = 0; i < files.length; ++i) {
-                const file = URL.createObjectURL(files[i]);
+            for (let i = 0; i < imgFiles.length; ++i) {
+                const file = URL.createObjectURL(imgFiles[i]);
                 this.canvasBackgroundImages.push(file);
             }
             this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[0]);
+            this.canvasStore.setCanvasBackgroundID(0);
             this.canvasBackgroundId = 0;
+            this.clearHistoryFile();
+            this.canvas.reset();
         },
-        loadPreviousImage() {
+        _loadPreviousImage() {
             if (this.canvasBackgroundId - 1 < 0) return;
+            if (this.isSwitching) return;
+            
+            this.isSwitching = true;
             let idex = --this.canvasBackgroundId;
             this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+            this.canvasStore.setCanvasBackgroundID(idex);
+            
+            setTimeout(() => {
+                this.isSwitching = false;
+            }, 500);
         },
-        loadNextImage() {
+        _loadNextImage() {
             if (this.canvasBackgroundId + 1 >= this.canvasBackgroundImages.length) return;
+            if (this.isSwitching) return;
+            
+            this.isSwitching = true;
             let idex = ++this.canvasBackgroundId;
             this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+            this.canvasStore.setCanvasBackgroundID(idex);
+            
+            setTimeout(() => {
+                this.isSwitching = false;
+            }, 500);
         },
+        loadPreviousImage: debounce(function() {
+            this._loadPreviousImage();
+        }, 300),
+        
+        loadNextImage: debounce(function() {
+            this._loadNextImage();
+        }, 300),
         exportImage() {
             const link = document.createElement('a');
             link.href = this.canvasStore.currentImgURL;
             link.download = "image.png";
             link.click();
-        }
+        },
+        clearHistoryFile() {
+            window.api.invoke('renderer-to-main', {
+                name: "save-history",
+                event: "cevent",
+                data:{
+                    'history': {},
+                }
+            });
+        },
     }
 };
 </script>
@@ -396,8 +445,9 @@ export default {
                     <input
                         ref="fileInput"
                         type="file"
-                        accept="image/*"
                         multiple
+                        webkitdirectory
+                        directory
                         @change="setImage"
                         style="display: none;"
                     >

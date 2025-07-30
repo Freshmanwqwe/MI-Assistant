@@ -65,6 +65,7 @@ async function loadPoints() {
     else {
         pointsStore.setPoints(points);
         updateStatus.value = 'Loaded';
+        updateKeypoints();
     }
 }
 

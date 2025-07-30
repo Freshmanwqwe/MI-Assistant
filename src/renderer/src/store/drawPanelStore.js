@@ -7,6 +7,7 @@ const useDrawPanelStore = defineStore('draw-panel', {
       canvasDisable: false,
       canvasLine:5,
       canvasBackground: null,
+      canvasBackgroundID: 0,
       currentImgURL: "",
     }),
     actions: {
@@ -27,6 +28,9 @@ const useDrawPanelStore = defineStore('draw-panel', {
       },
       setCurrentImgURL(URL) {
         this.currentImgURL = URL;
+      },
+      setCanvasBackgroundID(ID) {
+        this.canvasBackgroundID = ID;
       }
     }
   });

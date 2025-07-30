@@ -43,3 +43,19 @@ export function ensureConfigFile() {
     console.error('Error ensuring config file:', error);
   }
 }
+
+export function ensureHistoryFile() {
+    const history_file = path.join(configPath, 'history.json')
+  try {
+    if (!fs.existsSync(history_file)) {
+      console.log('History file not found. Creating a new one...');
+      const yamlContent = yaml.dump(defaultConfig);
+      fs.writeFileSync(history_file, yamlContent, 'utf8');
+      console.log('History file created successfully.');
+    } else {
+      console.log('History file exists:', history_file);
+    }
+  } catch (error) {
+    console.error('Error ensuring history file:', error);
+  }
+}
