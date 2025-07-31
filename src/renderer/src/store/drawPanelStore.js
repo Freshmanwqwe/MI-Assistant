@@ -6,6 +6,9 @@ const useDrawPanelStore = defineStore('draw-panel', {
       canvasEraser: false,
       canvasDisable: false,
       canvasLine:5,
+      canvasBackground: null,
+      canvasBackgroundID: 0,
+      currentImgURL: "",
     }),
     actions: {
       setCanvasRef(ref) {
@@ -19,7 +22,16 @@ const useDrawPanelStore = defineStore('draw-panel', {
       },
       setCanvasLine(line) {
         this.canvasLine = line;
-      }
+      },
+      setCanvasBackground(background) {
+        this.canvasBackground = background;
+      },
+      setCurrentImgURL(URL) {
+        this.currentImgURL = URL;
+      },
+      setCanvasBackgroundID(ID) {
+        this.canvasBackgroundID = ID;
+      },
     }
   });
 

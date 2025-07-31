@@ -67,10 +67,91 @@ class EventRouter {
 const fs$1 = require("fs");
 const path$1 = require("path");
 const yaml$1 = require("js-yaml");
+function createFolder(folderPath) {
+  try {
+    if (!fs$1.existsSync(folderPath)) {
+      fs$1.mkdirSync(folderPath, { recursive: true });
+      console.log("Folder created successfully:", folderPath);
+    } else {
+      console.log("Folder already exists:", folderPath);
+    }
+  } catch (error) {
+    console.error("Error creating folder:", error);
+  }
+}
+const defaultConfig = {
+  apiKEY: "NEED_YOUR_API_KEY",
+  apiURL: "NEED_YOUR_API_URL",
+  MODEL: "NEED_YOUR_MODEL"
+};
+function ensureConfigFile() {
+  const config_file = path$1.join(configPath, "config.yml");
+  try {
+    if (!fs$1.existsSync(config_file)) {
+      console.log("Config file not found. Creating a new one...");
+      const yamlContent = yaml$1.dump(defaultConfig);
+      fs$1.writeFileSync(config_file, yamlContent, "utf8");
+      console.log("Config file created successfully.");
+    } else {
+      console.log("Config file exists:", config_file);
+    }
+  } catch (error) {
+    console.error("Error ensuring config file:", error);
+  }
+}
+function ensurePatientForlder(patient) {
+  const patient_folder = path$1.join(configPath, "info/" + patient);
+  try {
+    if (!fs$1.existsSync(patient_folder)) {
+      console.log("Patient folder not found. Creating a new one...");
+      createFolder(patient_folder);
+      console.log("Patient folder created successfully.");
+    } else {
+      console.log("Patient folder exists:", patient_folder);
+    }
+  } catch (error) {
+    console.error("Error ensuring patient folder:", error);
+  }
+}
+function ensureHistoryFile(patient) {
+  ensurePatientForlder(patient);
+  const history_file = path$1.join(configPath, "info/" + patient + "/history.json");
+  try {
+    if (!fs$1.existsSync(history_file)) {
+      console.log("History file not found. Creating a new one...");
+      const historyContent = JSON.stringify({});
+      fs$1.writeFileSync(history_file, historyContent, "utf8");
+      console.log("History file created successfully.");
+    } else {
+      console.log("History file exists:", history_file);
+    }
+  } catch (error) {
+    console.error("Error ensuring history file:", error);
+  }
+}
+function ensureReportFile(patient) {
+  ensurePatientForlder(patient);
+  const report_file = path$1.join(configPath, "info/" + patient + "/report.json");
+  try {
+    if (!fs$1.existsSync(report_file)) {
+      console.log("Report file not found. Creating a new one...");
+      const reportContent = JSON.stringify({});
+      fs$1.writeFileSync(report_file, reportContent, "utf8");
+      console.log("Report file created successfully.");
+    } else {
+      console.log("Report file exists:", report_file);
+    }
+  } catch (error) {
+    console.error("Error ensuring report file:", error);
+  }
+}
+const fs = require("fs");
+const path = require("path");
+const yaml = require("js-yaml");
 async function loadExistedTestList() {
   try {
-    const files = fs$1.readdirSync(path$1.join(configPath, "test_configs").replace(" ", " "));
-    const fileNames = files.map((file) => path$1.basename(file));
+    const files = fs.readdirSync(path.join(configPath, "test_configs").replace(" ", " "));
+    const fileNames = files.map((file) => path.basename(file));
     return fileNames;
   } catch (error) {
     console.error("Error reading directory:", error);
@@ -78,14 +159,14 @@ async function loadExistedTestList() {
   }
 }
 async function loadConfig() {
-  const config_file = path$1.join(configPath, "config.yml");
+  const config_file = path.join(configPath, "config.yml");
   try {
-    if (!fs$1.existsSync(config_file)) {
+    if (!fs.existsSync(config_file)) {
       console.warn("Config file not found:", config_file);
       return {};
     }
-    const file = fs$1.readFileSync(config_file, "utf8");
-    const config = yaml$1.load(file);
+    const file = fs.readFileSync(config_file, "utf8");
+    const config = yaml.load(file);
     return config;
   } catch (error) {
     console.error("Error loading config:", error);
@@ -93,26 +174,78 @@ async function loadConfig() {
   }
 }
 async function saveConfig(config) {
-  const config_file = path$1.join(configPath, "config.yml");
+  const config_file = path.join(configPath, "config.yml");
   try {
-    const yamlContent = yaml$1.dump(config);
-    fs$1.writeFileSync(config_file, yamlContent, "utf8");
+    const yamlContent = yaml.dump(config);
+    fs.writeFileSync(config_file, yamlContent, "utf8");
   } catch (error) {
     console.error("Error ensuring config file:", error);
   }
 }
-async function savePoints(data) {
-  const config_file = path$1.join(configPath, "test_configs/" + data.name + ".json");
+async function loadHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, "info/" + data.patient + "/history.json");
   try {
-    fs$1.writeFileSync(config_file, data.points, "utf8");
+    if (!fs.existsSync(history_file)) {
+      console.warn("History file not found:", history_file);
+      return {};
+    }
+    const historyContent = fs.readFileSync(history_file, "utf-8");
+    const history = JSON.parse(historyContent);
+    return history;
+  } catch (error) {
+    console.error("Error loading history:", error);
+    return {};
+  }
+}
+async function saveHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, "info/" + data.patient + "/history.json");
+  try {
+    const historyContent = JSON.stringify(data.history);
+    fs.writeFileSync(history_file, historyContent, "utf-8");
+  } catch (error) {
+    console.error("Error ensuring history file:", error);
+  }
+}
+async function loadReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, "info/" + data.patient + "/report.json");
+  try {
+    if (!fs.existsSync(report_file)) {
+      console.warn("Report file not found:", report_file);
+      return {};
+    }
+    const reportContent = fs.readFileSync(report_file, "utf-8");
+    const report = JSON.parse(reportContent);
+    return report;
+  } catch (error) {
+    console.error("Error loading report:", error);
+    return {};
+  }
+}
+async function saveReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, "info/" + data.patient + "/report.json");
+  try {
+    const reportContent = JSON.stringify(data.report);
+    fs.writeFileSync(report_file, reportContent, "utf-8");
+  } catch (error) {
+    console.error("Error ensuring report file:", error);
+  }
+}
+async function savePoints(data) {
+  const config_file = path.join(configPath, "test_configs/" + data.name + ".json");
+  try {
+    fs.writeFileSync(config_file, data.points, "utf8");
   } catch (error) {
     console.error("Error ensuring config file:", error);
   }
 }
 async function loadPoints(data) {
-  const config_file = path$1.join(configPath, "test_configs/" + data.teatName);
+  const config_file = path.join(configPath, "test_configs/" + data.teatName);
   try {
-    return JSON.parse(fs$1.readFileSync(config_file));
+    return JSON.parse(fs.readFileSync(config_file));
   } catch (error) {
     return { "error": true };
   }
@@ -152,6 +285,64 @@ Example Output:
         ]
         }</json>`
 };
+const sys_msg_summarize = {
+  "role": "system",
+  "content": `You are a specialized medical imaging report assistant.
+    A medical imaging report and keypoints the report has to be mentioned are provided by user. Your task is to summarize the report with those keypoints(some of the key points might not be mentioned & keypoints might be empty) for the user.
+    Follow these guidelines:
+         1. The message you will receive is in json format. In the top-level field of the JSON, there exists two fields "report" and "keypoints". "report" contains the raw content of the medical imaging report, while "keypoints" is a array where each key point is an object containing the following fields:
+        "title": A brief title for the key point.
+        "importance": A value indicating whether the key point is "required" or "optional".
+        "explanation": A clear, concise explanation of the significance of the key point.
+        2. Ouput requirement: The final output has to be in valid json format envaloped by <json></json> tag. The ouput must include 2 fields: "message" and "summary".
+        3. "summary" field has to include your summary for the report ONLY.
+        4. Overall Tone: Maintain a neutral, professional tone throughout the response. Use precise and medically accurate language that is suitable for a professional audience (i.e., medical doctors).
+        
+
+Example Ouput:
+        <json> {
+            "message": "Thank you for the report and keypoints. According to the keypoints, here is the summary shared for you.",
+            "summary": "blablabla"
+        }</json>
+        `
+};
+const sys_msg_updkeys = {
+  "role": "system",
+  "content": `You are a specialized medical imaging report assistant.
+    A medical imaging report and a set of keypoints are provided by user. Your task is to determine whether those key points are mentioned in the report.
+    Follow these guidelines:
+        1. The message you will receive is in json format. In the top-level field of the JSON, there exists two fields "report" and "keypoints". "report" contains the raw content of the medical imaging report, while "keypoints" is a array where each key point is an object containing the following fields:
+        "title": A brief title for the key point.
+        "importance": A value indicating whether the key point is "required" or "optional".
+        "explanation": A clear, concise explanation of the significance of the key point.
+        2. For every single keypoint, according to its name and explanation, determine whether it is mentioned in the given report.
+        3. Ouput requirement: The final output has to be in valid json format envaloped by <json></json> tag. Ouput JSON is based on the "keypoints" field in the input JSON. For every keypoint, if it is mentioned in the report, modify the value of "importance" field to "done", otherwise keep the value of "importance" field as what it was.
+        4. A keypoint is mentioned doesnt mean the keypoint is mentioned exactly word-for-word or letter-for-letter.
+        
+
+Example Ouput:
+        <json> {
+            "message": "Thank you for your report. Let me check whether your report mentioned the provided keypoints."
+            "key_points": [
+                {
+                "title": "Lung Fields",
+                "importance": "done",
+                "explanation": "Evaluate the lung parenchyma for opacities, consolidation, and interstitial patterns to detect pathologies such as pneumonia or interstitial lung disease."
+                },
+                {
+                "title": "Cardiac Silhouette",
+                "importance": "optional",
+                "explanation": "Examine the size and contour of the heart to identify cardiomegaly or other cardiac abnormalities."
+                },
+                {
+                "title": "Radiology",
+                "importance": "required",
+                "explanation": "Utilize various imaging technologies (such as X-ray, CT, MRI, ultrasound, etc.) for the visualization and diagnosis of internal structures of the human body."
+                }
+        ]
+        }</json>
+        `
+};
 async function testAPI(data) {
   var res = "";
   await axios({
@@ -177,6 +368,54 @@ async function AddCatChat(data) {
   const req = {
     model: data.request.model,
     messages: [sys_msg_addcat, ...data.request.messages]
+  };
+  await axios({
+    url: data.apiURL,
+    method: "POST",
+    data: {
+      ...req
+    },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + data.apiKEY
+    }
+  }).then(function(response) {
+    res = response.data.choices[0].message.content;
+  }).catch(function(error) {
+    const errs = error.response.data.error;
+    res = error.status + "\n" + errs.code + " " + errs.message;
+  });
+  return res;
+}
+async function Summarize(data) {
+  var res = "";
+  const req = {
+    model: data.request.model,
+    messages: [sys_msg_summarize, ...data.request.messages]
+  };
+  await axios({
+    url: data.apiURL,
+    method: "POST",
+    data: {
+      ...req
+    },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + data.apiKEY
+    }
+  }).then(function(response) {
+    res = response.data.choices[0].message.content;
+  }).catch(function(error) {
+    const errs = error.response.data.error;
+    res = error.status + "\n" + errs.code + " " + errs.message;
+  });
+  return res;
+}
+async function Updkeys(data) {
+  var res = "";
+  const req = {
+    model: data.request.model,
+    messages: [sys_msg_updkeys, ...data.request.messages]
   };
   await axios({
     url: data.apiURL,
@@ -353,6 +592,44 @@ routers.push(
 );
 routers.push(
   new EventRouter(
+    "load-history",
+    "asyncevent",
+    async (api, data = {}) => {
+      const history = await loadHistory(data.data);
+      return history;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "save-history",
+    "event",
+    (api, data) => {
+      saveHistory(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "load-report",
+    "asyncevent",
+    async (api, data = {}) => {
+      const report = await loadReport(data.data);
+      return report;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "save-report",
+    "event",
+    (api, data) => {
+      saveReport(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
     "save-points",
     "event",
     (api, data) => {
@@ -393,47 +670,33 @@ routers.push(
     }
   )
 );
-const fs = require("fs");
-const path = require("path");
-const yaml = require("js-yaml");
-function createFolder(folderPath) {
-  try {
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-      console.log("Folder created successfully:", folderPath);
-    } else {
-      console.log("Folder already exists:", folderPath);
+routers.push(
+  new EventRouter(
+    "summarize-chat",
+    "asyncevent",
+    async (api, data = {}) => {
+      const res = await Summarize(data.data);
+      return res;
     }
-  } catch (error) {
-    console.error("Error creating folder:", error);
-  }
-}
-const defaultConfig = {
-  apiKEY: "NEED_YOUR_API_KEY",
-  apiURL: "NEED_YOUR_API_URL",
-  MODEL: "NEED_YOUR_MODEL"
-};
-function ensureConfigFile() {
-  const config_file = path.join(configPath, "config.yml");
-  try {
-    if (!fs.existsSync(config_file)) {
-      console.log("Config file not found. Creating a new one...");
-      const yamlContent = yaml.dump(defaultConfig);
-      fs.writeFileSync(config_file, yamlContent, "utf8");
-      console.log("Config file created successfully.");
-    } else {
-      console.log("Config file exists:", config_file);
+  )
+);
+routers.push(
+  new EventRouter(
+    "updkeys-chat",
+    "asyncevent",
+    async (api, data = {}) => {
+      const res = await Updkeys(data.data);
+      return res;
     }
-  } catch (error) {
-    console.error("Error ensuring config file:", error);
-  }
-}
+  )
+);
 const basePath = electron.app.isPackaged ? electron.app.getAppPath() : __dirname;
 const configPath = path$2.join(electron.app.getPath("appData"), ".medai");
 const existedWindows = /* @__PURE__ */ new Map();
 function initRunning() {
   createFolder(configPath);
   createFolder(path$2.join(configPath, "test_configs"));
+  createFolder(path$2.join(configPath, "info"));
   ensureConfigFile();
 }
 function createWindow() {

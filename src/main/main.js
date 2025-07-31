@@ -6,17 +6,19 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { createGlobalShortcuts } from './shortcuts'
 import EventRouters from './EventRouter/EventRouters'
 import routers from './EventRouter/router.list'
-import { createFolder, ensureConfigFile } from './utils'
+import { createFolder, ensureConfigFile, ensureHistoryFile } from './utils'
 
 export const basePath = app.isPackaged ? app.getAppPath() : __dirname;
 export const configPath = join(app.getPath('appData'), '.medai')
 
 export const existedWindows = new Map()
 
+
 function initRunning () {
   createFolder(configPath);
   createFolder(join(configPath, 'test_configs'));
-  ensureConfigFile()
+  createFolder(join(configPath, 'info'));
+  ensureConfigFile();
 }
 
 function createWindow() {

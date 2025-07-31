@@ -12,7 +12,7 @@
 
       const CatlogAddingStore = useCatlogAddingStore()
       
-  
+      
       // Send user message and get system response
       const sendMessage = async () => {
         if (!userInput.value.trim()) return;
@@ -27,13 +27,13 @@
         // Scroll down after updating messages
         await nextTick();
         scrollToBottom();
-        
+  
         messages.value.push({ role: "assistant", text: "Waiting..." });
         nextTick().then(scrollToBottom);
         const res = await window.api.invoke('renderer-to-main-async', {
             name: "addcat-chat",
             event: "asyncevent",
-            data:{
+            data: {
                 'apiURL': window.localStorage.getItem("apiURL"),
                 'apiKEY': window.localStorage.getItem("apiKEY"),
                 'request':{
@@ -48,10 +48,11 @@
                 }
             }
         });
+        
         messages.value.pop();
         nextTick().then(scrollToBottom);
         
-        try{
+        try {
           const regex = /<json>([\s\S]*?)<\/json>/;
           const match = res.match(regex);
           const res_json = JSON.parse(match[1]);
@@ -66,7 +67,7 @@
         }
         nextTick().then(scrollToBottom);
       };
-  
+
       // Auto-scroll to the latest message
       const scrollToBottom = () => {
         const chatContainer = document.querySelector(".chat-container");
@@ -74,7 +75,7 @@
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
       };
-  
+
       return { messages, userInput, sendMessage, scrollToBottom};
     },
   };
