@@ -3,16 +3,18 @@
   <head>
     <meta charset="UTF-8">
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';img-src 'self' blob: data:;;">
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';img-src 'self' blob: data:; media-src 'self' blob:;;"> -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' https://raasr.xfyun.cn wss://iat-api.xfyun.cn;">
 
     <!-- <link rel="stylesheet" href="./assets/style.css"> -->
 
     <title>Miaa: Medical Image Ai Assistant</title>
 
-    <script type="module" crossorigin src="./assets/index-DL_zdiEI.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-OtS7mC9F.css">
+    <script type="module" crossorigin src="./assets/index-oEwsclbK.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-ycyjr6jd.css">
   </head>
   <body class="style-color-1">
     <div id="app"></div>
+    <script src="./crypto-js.js"></script>
   </body>
 </html>

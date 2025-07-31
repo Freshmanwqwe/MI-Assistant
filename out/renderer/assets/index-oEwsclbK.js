@@ -3,7 +3,7 @@ var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var require_index_001 = __commonJS({
-  "assets/index-DL_zdiEI.js"(exports, module) {
+  "assets/index-oEwsclbK.js"(exports, module) {
     /**
     * @vue/shared v3.5.13
     * (c) 2018-present Yuxi (Evan) You and Vue contributors
@@ -36,6 +36,7 @@ var require_index_001 = __commonJS({
     const isArray$2 = Array.isArray;
     const isMap$1 = (val) => toTypeString(val) === "[object Map]";
     const isSet$1 = (val) => toTypeString(val) === "[object Set]";
+    const isDate = (val) => toTypeString(val) === "[object Date]";
     const isFunction$1 = (val) => typeof val === "function";
     const isString$1 = (val) => typeof val === "string";
     const isSymbol$1 = (val) => typeof val === "symbol";
@@ -160,6 +161,52 @@ var require_index_001 = __commonJS({
     const isSpecialBooleanAttr = /* @__PURE__ */ makeMap(specialBooleanAttrs);
     function includeBooleanAttr(value) {
       return !!value || value === "";
+    }
+    function looseCompareArrays(a, b) {
+      if (a.length !== b.length) return false;
+      let equal = true;
+      for (let i = 0; equal && i < a.length; i++) {
+        equal = looseEqual(a[i], b[i]);
+      }
+      return equal;
+    }
+    function looseEqual(a, b) {
+      if (a === b) return true;
+      let aValidType = isDate(a);
+      let bValidType = isDate(b);
+      if (aValidType || bValidType) {
+        return aValidType && bValidType ? a.getTime() === b.getTime() : false;
+      }
+      aValidType = isSymbol$1(a);
+      bValidType = isSymbol$1(b);
+      if (aValidType || bValidType) {
+        return a === b;
+      }
+      aValidType = isArray$2(a);
+      bValidType = isArray$2(b);
+      if (aValidType || bValidType) {
+        return aValidType && bValidType ? looseCompareArrays(a, b) : false;
+      }
+      aValidType = isObject$1(a);
+      bValidType = isObject$1(b);
+      if (aValidType || bValidType) {
+        if (!aValidType || !bValidType) {
+          return false;
+        }
+        const aKeysCount = Object.keys(a).length;
+        const bKeysCount = Object.keys(b).length;
+        if (aKeysCount !== bKeysCount) {
+          return false;
+        }
+        for (const key in a) {
+          const aHasKey = a.hasOwnProperty(key);
+          const bHasKey = b.hasOwnProperty(key);
+          if (aHasKey && !bHasKey || !aHasKey && bHasKey || !looseEqual(a[key], b[key])) {
+            return false;
+          }
+        }
+      }
+      return String(a) === String(b);
     }
     const isRef$1 = (val) => {
       return !!(val && val["__v_isRef"] === true);
@@ -3083,6 +3130,23 @@ var require_index_001 = __commonJS({
       }
       return ret;
     }
+    function createSlots(slots, dynamicSlots) {
+      for (let i = 0; i < dynamicSlots.length; i++) {
+        const slot = dynamicSlots[i];
+        if (isArray$2(slot)) {
+          for (let j = 0; j < slot.length; j++) {
+            slots[slot[j].name] = slot[j].fn;
+          }
+        } else if (slot) {
+          slots[slot.name] = slot.key ? (...args) => {
+            const res = slot.fn(...args);
+            if (res) res.key = slot.key;
+            return res;
+          } : slot.fn;
+        }
+      }
+      return slots;
+    }
     function renderSlot(slots, name, props = {}, fallback, noSlotted) {
       if (currentRenderingInstance.ce || currentRenderingInstance.parent && isAsyncWrapper(currentRenderingInstance.parent) && currentRenderingInstance.parent.ce) {
         if (name !== "default") props.name = name;
@@ -5773,6 +5837,24 @@ var require_index_001 = __commonJS({
       setCurrentRenderingInstance(prev);
       return result;
     }
+    function filterSingleRoot(children, recurse = true) {
+      let singleRoot;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (isVNode(child)) {
+          if (child.type !== Comment || child.children === "v-if") {
+            if (singleRoot) {
+              return;
+            } else {
+              singleRoot = child;
+            }
+          }
+        } else {
+          return;
+        }
+      }
+      return singleRoot;
+    }
     const getFunctionalFallthrough = (attrs) => {
       let res;
       for (const key in attrs) {
@@ -5863,6 +5945,537 @@ var require_index_001 = __commonJS({
       }
     }
     const isSuspense = (type) => type.__isSuspense;
+    let suspenseId = 0;
+    const SuspenseImpl = {
+      name: "Suspense",
+      // In order to make Suspense tree-shakable, we need to avoid importing it
+      // directly in the renderer. The renderer checks for the __isSuspense flag
+      // on a vnode's type and calls the `process` method, passing in renderer
+      // internals.
+      __isSuspense: true,
+      process(n1, n2, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized, rendererInternals) {
+        if (n1 == null) {
+          mountSuspense(
+            n2,
+            container,
+            anchor,
+            parentComponent,
+            parentSuspense,
+            namespace,
+            slotScopeIds,
+            optimized,
+            rendererInternals
+          );
+        } else {
+          if (parentSuspense && parentSuspense.deps > 0 && !n1.suspense.isInFallback) {
+            n2.suspense = n1.suspense;
+            n2.suspense.vnode = n2;
+            n2.el = n1.el;
+            return;
+          }
+          patchSuspense(
+            n1,
+            n2,
+            container,
+            anchor,
+            parentComponent,
+            namespace,
+            slotScopeIds,
+            optimized,
+            rendererInternals
+          );
+        }
+      },
+      hydrate: hydrateSuspense,
+      normalize: normalizeSuspenseChildren
+    };
+    const Suspense = SuspenseImpl;
+    function triggerEvent(vnode, name) {
+      const eventListener = vnode.props && vnode.props[name];
+      if (isFunction$1(eventListener)) {
+        eventListener();
+      }
+    }
+    function mountSuspense(vnode, container, anchor, parentComponent, parentSuspense, namespace, slotScopeIds, optimized, rendererInternals) {
+      const {
+        p: patch,
+        o: { createElement }
+      } = rendererInternals;
+      const hiddenContainer = createElement("div");
+      const suspense = vnode.suspense = createSuspenseBoundary(
+        vnode,
+        parentSuspense,
+        parentComponent,
+        container,
+        hiddenContainer,
+        anchor,
+        namespace,
+        slotScopeIds,
+        optimized,
+        rendererInternals
+      );
+      patch(
+        null,
+        suspense.pendingBranch = vnode.ssContent,
+        hiddenContainer,
+        null,
+        parentComponent,
+        suspense,
+        namespace,
+        slotScopeIds
+      );
+      if (suspense.deps > 0) {
+        triggerEvent(vnode, "onPending");
+        triggerEvent(vnode, "onFallback");
+        patch(
+          null,
+          vnode.ssFallback,
+          container,
+          anchor,
+          parentComponent,
+          null,
+          // fallback tree will not have suspense context
+          namespace,
+          slotScopeIds
+        );
+        setActiveBranch(suspense, vnode.ssFallback);
+      } else {
+        suspense.resolve(false, true);
+      }
+    }
+    function patchSuspense(n1, n2, container, anchor, parentComponent, namespace, slotScopeIds, optimized, { p: patch, um: unmount, o: { createElement } }) {
+      const suspense = n2.suspense = n1.suspense;
+      suspense.vnode = n2;
+      n2.el = n1.el;
+      const newBranch = n2.ssContent;
+      const newFallback = n2.ssFallback;
+      const { activeBranch, pendingBranch, isInFallback, isHydrating } = suspense;
+      if (pendingBranch) {
+        suspense.pendingBranch = newBranch;
+        if (isSameVNodeType(newBranch, pendingBranch)) {
+          patch(
+            pendingBranch,
+            newBranch,
+            suspense.hiddenContainer,
+            null,
+            parentComponent,
+            suspense,
+            namespace,
+            slotScopeIds,
+            optimized
+          );
+          if (suspense.deps <= 0) {
+            suspense.resolve();
+          } else if (isInFallback) {
+            if (!isHydrating) {
+              patch(
+                activeBranch,
+                newFallback,
+                container,
+                anchor,
+                parentComponent,
+                null,
+                // fallback tree will not have suspense context
+                namespace,
+                slotScopeIds,
+                optimized
+              );
+              setActiveBranch(suspense, newFallback);
+            }
+          }
+        } else {
+          suspense.pendingId = suspenseId++;
+          if (isHydrating) {
+            suspense.isHydrating = false;
+            suspense.activeBranch = pendingBranch;
+          } else {
+            unmount(pendingBranch, parentComponent, suspense);
+          }
+          suspense.deps = 0;
+          suspense.effects.length = 0;
+          suspense.hiddenContainer = createElement("div");
+          if (isInFallback) {
+            patch(
+              null,
+              newBranch,
+              suspense.hiddenContainer,
+              null,
+              parentComponent,
+              suspense,
+              namespace,
+              slotScopeIds,
+              optimized
+            );
+            if (suspense.deps <= 0) {
+              suspense.resolve();
+            } else {
+              patch(
+                activeBranch,
+                newFallback,
+                container,
+                anchor,
+                parentComponent,
+                null,
+                // fallback tree will not have suspense context
+                namespace,
+                slotScopeIds,
+                optimized
+              );
+              setActiveBranch(suspense, newFallback);
+            }
+          } else if (activeBranch && isSameVNodeType(newBranch, activeBranch)) {
+            patch(
+              activeBranch,
+              newBranch,
+              container,
+              anchor,
+              parentComponent,
+              suspense,
+              namespace,
+              slotScopeIds,
+              optimized
+            );
+            suspense.resolve(true);
+          } else {
+            patch(
+              null,
+              newBranch,
+              suspense.hiddenContainer,
+              null,
+              parentComponent,
+              suspense,
+              namespace,
+              slotScopeIds,
+              optimized
+            );
+            if (suspense.deps <= 0) {
+              suspense.resolve();
+            }
+          }
+        }
+      } else {
+        if (activeBranch && isSameVNodeType(newBranch, activeBranch)) {
+          patch(
+            activeBranch,
+            newBranch,
+            container,
+            anchor,
+            parentComponent,
+            suspense,
+            namespace,
+            slotScopeIds,
+            optimized
+          );
+          setActiveBranch(suspense, newBranch);
+        } else {
+          triggerEvent(n2, "onPending");
+          suspense.pendingBranch = newBranch;
+          if (newBranch.shapeFlag & 512) {
+            suspense.pendingId = newBranch.component.suspenseId;
+          } else {
+            suspense.pendingId = suspenseId++;
+          }
+          patch(
+            null,
+            newBranch,
+            suspense.hiddenContainer,
+            null,
+            parentComponent,
+            suspense,
+            namespace,
+            slotScopeIds,
+            optimized
+          );
+          if (suspense.deps <= 0) {
+            suspense.resolve();
+          } else {
+            const { timeout, pendingId } = suspense;
+            if (timeout > 0) {
+              setTimeout(() => {
+                if (suspense.pendingId === pendingId) {
+                  suspense.fallback(newFallback);
+                }
+              }, timeout);
+            } else if (timeout === 0) {
+              suspense.fallback(newFallback);
+            }
+          }
+        }
+      }
+    }
+    function createSuspenseBoundary(vnode, parentSuspense, parentComponent, container, hiddenContainer, anchor, namespace, slotScopeIds, optimized, rendererInternals, isHydrating = false) {
+      const {
+        p: patch,
+        m: move,
+        um: unmount,
+        n: next,
+        o: { parentNode, remove: remove2 }
+      } = rendererInternals;
+      let parentSuspenseId;
+      const isSuspensible = isVNodeSuspensible(vnode);
+      if (isSuspensible) {
+        if (parentSuspense && parentSuspense.pendingBranch) {
+          parentSuspenseId = parentSuspense.pendingId;
+          parentSuspense.deps++;
+        }
+      }
+      const timeout = vnode.props ? toNumber$1(vnode.props.timeout) : void 0;
+      const initialAnchor = anchor;
+      const suspense = {
+        vnode,
+        parent: parentSuspense,
+        parentComponent,
+        namespace,
+        container,
+        hiddenContainer,
+        deps: 0,
+        pendingId: suspenseId++,
+        timeout: typeof timeout === "number" ? timeout : -1,
+        activeBranch: null,
+        pendingBranch: null,
+        isInFallback: !isHydrating,
+        isHydrating,
+        isUnmounted: false,
+        effects: [],
+        resolve(resume = false, sync = false) {
+          const {
+            vnode: vnode2,
+            activeBranch,
+            pendingBranch,
+            pendingId,
+            effects,
+            parentComponent: parentComponent2,
+            container: container2
+          } = suspense;
+          let delayEnter = false;
+          if (suspense.isHydrating) {
+            suspense.isHydrating = false;
+          } else if (!resume) {
+            delayEnter = activeBranch && pendingBranch.transition && pendingBranch.transition.mode === "out-in";
+            if (delayEnter) {
+              activeBranch.transition.afterLeave = () => {
+                if (pendingId === suspense.pendingId) {
+                  move(
+                    pendingBranch,
+                    container2,
+                    anchor === initialAnchor ? next(activeBranch) : anchor,
+                    0
+                  );
+                  queuePostFlushCb(effects);
+                }
+              };
+            }
+            if (activeBranch) {
+              if (parentNode(activeBranch.el) === container2) {
+                anchor = next(activeBranch);
+              }
+              unmount(activeBranch, parentComponent2, suspense, true);
+            }
+            if (!delayEnter) {
+              move(pendingBranch, container2, anchor, 0);
+            }
+          }
+          setActiveBranch(suspense, pendingBranch);
+          suspense.pendingBranch = null;
+          suspense.isInFallback = false;
+          let parent = suspense.parent;
+          let hasUnresolvedAncestor = false;
+          while (parent) {
+            if (parent.pendingBranch) {
+              parent.effects.push(...effects);
+              hasUnresolvedAncestor = true;
+              break;
+            }
+            parent = parent.parent;
+          }
+          if (!hasUnresolvedAncestor && !delayEnter) {
+            queuePostFlushCb(effects);
+          }
+          suspense.effects = [];
+          if (isSuspensible) {
+            if (parentSuspense && parentSuspense.pendingBranch && parentSuspenseId === parentSuspense.pendingId) {
+              parentSuspense.deps--;
+              if (parentSuspense.deps === 0 && !sync) {
+                parentSuspense.resolve();
+              }
+            }
+          }
+          triggerEvent(vnode2, "onResolve");
+        },
+        fallback(fallbackVNode) {
+          if (!suspense.pendingBranch) {
+            return;
+          }
+          const { vnode: vnode2, activeBranch, parentComponent: parentComponent2, container: container2, namespace: namespace2 } = suspense;
+          triggerEvent(vnode2, "onFallback");
+          const anchor2 = next(activeBranch);
+          const mountFallback = () => {
+            if (!suspense.isInFallback) {
+              return;
+            }
+            patch(
+              null,
+              fallbackVNode,
+              container2,
+              anchor2,
+              parentComponent2,
+              null,
+              // fallback tree will not have suspense context
+              namespace2,
+              slotScopeIds,
+              optimized
+            );
+            setActiveBranch(suspense, fallbackVNode);
+          };
+          const delayEnter = fallbackVNode.transition && fallbackVNode.transition.mode === "out-in";
+          if (delayEnter) {
+            activeBranch.transition.afterLeave = mountFallback;
+          }
+          suspense.isInFallback = true;
+          unmount(
+            activeBranch,
+            parentComponent2,
+            null,
+            // no suspense so unmount hooks fire now
+            true
+            // shouldRemove
+          );
+          if (!delayEnter) {
+            mountFallback();
+          }
+        },
+        move(container2, anchor2, type) {
+          suspense.activeBranch && move(suspense.activeBranch, container2, anchor2, type);
+          suspense.container = container2;
+        },
+        next() {
+          return suspense.activeBranch && next(suspense.activeBranch);
+        },
+        registerDep(instance, setupRenderEffect, optimized2) {
+          const isInPendingSuspense = !!suspense.pendingBranch;
+          if (isInPendingSuspense) {
+            suspense.deps++;
+          }
+          const hydratedEl = instance.vnode.el;
+          instance.asyncDep.catch((err) => {
+            handleError(err, instance, 0);
+          }).then((asyncSetupResult) => {
+            if (instance.isUnmounted || suspense.isUnmounted || suspense.pendingId !== instance.suspenseId) {
+              return;
+            }
+            instance.asyncResolved = true;
+            const { vnode: vnode2 } = instance;
+            handleSetupResult(instance, asyncSetupResult, false);
+            if (hydratedEl) {
+              vnode2.el = hydratedEl;
+            }
+            const placeholder = !hydratedEl && instance.subTree.el;
+            setupRenderEffect(
+              instance,
+              vnode2,
+              // component may have been moved before resolve.
+              // if this is not a hydration, instance.subTree will be the comment
+              // placeholder.
+              parentNode(hydratedEl || instance.subTree.el),
+              // anchor will not be used if this is hydration, so only need to
+              // consider the comment placeholder case.
+              hydratedEl ? null : next(instance.subTree),
+              suspense,
+              namespace,
+              optimized2
+            );
+            if (placeholder) {
+              remove2(placeholder);
+            }
+            updateHOCHostEl(instance, vnode2.el);
+            if (isInPendingSuspense && --suspense.deps === 0) {
+              suspense.resolve();
+            }
+          });
+        },
+        unmount(parentSuspense2, doRemove) {
+          suspense.isUnmounted = true;
+          if (suspense.activeBranch) {
+            unmount(
+              suspense.activeBranch,
+              parentComponent,
+              parentSuspense2,
+              doRemove
+            );
+          }
+          if (suspense.pendingBranch) {
+            unmount(
+              suspense.pendingBranch,
+              parentComponent,
+              parentSuspense2,
+              doRemove
+            );
+          }
+        }
+      };
+      return suspense;
+    }
+    function hydrateSuspense(node, vnode, parentComponent, parentSuspense, namespace, slotScopeIds, optimized, rendererInternals, hydrateNode) {
+      const suspense = vnode.suspense = createSuspenseBoundary(
+        vnode,
+        parentSuspense,
+        parentComponent,
+        node.parentNode,
+        // eslint-disable-next-line no-restricted-globals
+        document.createElement("div"),
+        null,
+        namespace,
+        slotScopeIds,
+        optimized,
+        rendererInternals,
+        true
+      );
+      const result = hydrateNode(
+        node,
+        suspense.pendingBranch = vnode.ssContent,
+        parentComponent,
+        suspense,
+        slotScopeIds,
+        optimized
+      );
+      if (suspense.deps === 0) {
+        suspense.resolve(false, true);
+      }
+      return result;
+    }
+    function normalizeSuspenseChildren(vnode) {
+      const { shapeFlag, children } = vnode;
+      const isSlotChildren = shapeFlag & 32;
+      vnode.ssContent = normalizeSuspenseSlot(
+        isSlotChildren ? children.default : children
+      );
+      vnode.ssFallback = isSlotChildren ? normalizeSuspenseSlot(children.fallback) : createVNode(Comment);
+    }
+    function normalizeSuspenseSlot(s) {
+      let block;
+      if (isFunction$1(s)) {
+        const trackBlock = isBlockTreeEnabled && s._c;
+        if (trackBlock) {
+          s._d = false;
+          openBlock();
+        }
+        s = s();
+        if (trackBlock) {
+          s._d = true;
+          block = currentBlock;
+          closeBlock();
+        }
+      }
+      if (isArray$2(s)) {
+        const singleChild = filterSingleRoot(s);
+        s = singleChild;
+      }
+      s = normalizeVNode(s);
+      if (block && !s.dynamicChildren) {
+        s.dynamicChildren = block.filter((c) => c !== s);
+      }
+      return s;
+    }
     function queueEffectWithSuspense(fn2, suspense) {
       if (suspense && suspense.pendingBranch) {
         if (isArray$2(fn2)) {
@@ -5873,6 +6486,24 @@ var require_index_001 = __commonJS({
       } else {
         queuePostFlushCb(fn2);
       }
+    }
+    function setActiveBranch(suspense, branch) {
+      suspense.activeBranch = branch;
+      const { vnode, parentComponent } = suspense;
+      let el = branch.el;
+      while (!el && branch.component) {
+        branch = branch.component.subTree;
+        el = branch.el;
+      }
+      vnode.el = el;
+      if (parentComponent && parentComponent.subTree === vnode) {
+        parentComponent.vnode.el = el;
+        updateHOCHostEl(parentComponent, el);
+      }
+    }
+    function isVNodeSuspensible(vnode) {
+      const suspensible = vnode.props && vnode.props.suspensible;
+      return suspensible != null && suspensible !== false;
     }
     const Fragment = Symbol.for("v-fgt");
     const Text = Symbol.for("v-txt");
@@ -7501,6 +8132,24 @@ var require_index_001 = __commonJS({
         el.value = newValue;
       }
     };
+    const vModelRadio = {
+      created(el, { value }, vnode) {
+        el.checked = looseEqual(value, vnode.props.value);
+        el[assignKey] = getModelAssigner(vnode);
+        addEventListener(el, "change", () => {
+          el[assignKey](getValue$2(el));
+        });
+      },
+      beforeUpdate(el, { value, oldValue }, vnode) {
+        el[assignKey] = getModelAssigner(vnode);
+        if (value !== oldValue) {
+          el.checked = looseEqual(value, vnode.props.value);
+        }
+      }
+    };
+    function getValue$2(el) {
+      return "_value" in el ? el._value : el.value;
+    }
     const systemModifiers = ["ctrl", "shift", "alt", "meta"];
     const modifierGuards = {
       stop: (e) => e.stopPropagation(),
@@ -7915,9 +8564,12 @@ var require_index_001 = __commonJS({
       let id;
       let options;
       const isSetupStore = typeof setup === "function";
-      {
+      if (typeof idOrOptions === "string") {
         id = idOrOptions;
         options = isSetupStore ? setupOptions : setup;
+      } else {
+        options = idOrOptions;
+        id = idOrOptions.id;
       }
       function useStore(pinia, hot) {
         const hasContext = hasInjectionContext();
@@ -7940,15 +8592,27 @@ var require_index_001 = __commonJS({
       useStore.$id = id;
       return useStore;
     }
-    const _sfc_main$E = {
-      __name: "App",
-      setup(__props) {
-        return (_ctx, _cache) => {
-          const _component_router_view = resolveComponent("router-view");
-          return openBlock(), createBlock(_component_router_view);
-        };
+    const _export_sfc$1 = (sfc, props) => {
+      const target = sfc.__vccOpts || sfc;
+      for (const [key, val] of props) {
+        target[key] = val;
       }
+      return target;
     };
+    const _sfc_main$O = {};
+    function _sfc_render$9(_ctx, _cache) {
+      const _component_router_view = resolveComponent("router-view");
+      return openBlock(), createBlock(Suspense, null, {
+        default: withCtx(() => [
+          createVNode(_component_router_view)
+        ]),
+        fallback: withCtx(() => _cache[0] || (_cache[0] = [
+          createBaseVNode("p", { style: { "color": "black", "align-items": "center" } }, "Loading...", -1)
+        ])),
+        _: 1
+      });
+    }
+    const App = /* @__PURE__ */ _export_sfc$1(_sfc_main$O, [["render", _sfc_render$9]]);
     /*!
       * vue-router v4.5.0
       * (c) 2024 Eduardo San Martin Morote
@@ -9935,6 +10599,43 @@ var require_index_001 = __commonJS({
       else
         nextTick(fn2);
     }
+    function useTimeoutFn(cb, interval, options = {}) {
+      const {
+        immediate = true
+      } = options;
+      const isPending = ref(false);
+      let timer = null;
+      function clear() {
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      }
+      function stop() {
+        isPending.value = false;
+        clear();
+      }
+      function start(...args) {
+        clear();
+        isPending.value = true;
+        timer = setTimeout(() => {
+          isPending.value = false;
+          timer = null;
+          cb(...args);
+        }, resolveUnref(interval));
+      }
+      if (immediate) {
+        isPending.value = true;
+        if (isClient)
+          start();
+      }
+      tryOnScopeDispose(stop);
+      return {
+        isPending: readonly(isPending),
+        start,
+        stop
+      };
+    }
     function unrefElement(elRef) {
       var _a2;
       const plain = resolveUnref(elRef);
@@ -11079,10 +11780,10 @@ var require_index_001 = __commonJS({
       }
       return result;
     }
-    var Uint8Array2 = root.Uint8Array;
+    var Uint8Array$1 = root.Uint8Array;
     function cloneArrayBuffer(arrayBuffer) {
       var result = new arrayBuffer.constructor(arrayBuffer.byteLength);
-      new Uint8Array2(result).set(new Uint8Array2(arrayBuffer));
+      new Uint8Array$1(result).set(new Uint8Array$1(arrayBuffer));
       return result;
     }
     function cloneDataView(dataView, isDeep) {
@@ -11320,7 +12021,7 @@ var require_index_001 = __commonJS({
           object = object.buffer;
           other = other.buffer;
         case arrayBufferTag:
-          if (object.byteLength != other.byteLength || !equalFunc(new Uint8Array2(object), new Uint8Array2(other))) {
+          if (object.byteLength != other.byteLength || !equalFunc(new Uint8Array$1(object), new Uint8Array$1(other))) {
             return false;
           }
           return true;
@@ -11566,7 +12267,7 @@ var require_index_001 = __commonJS({
     };
     var FUNC_ERROR_TEXT = "Expected a function";
     var nativeMax = Math.max, nativeMin = Math.min;
-    function debounce(func, wait, options) {
+    function debounce$1(func, wait, options) {
       var lastArgs, lastThis, maxWait, result, timerId, lastCallTime, lastInvokeTime = 0, leading = false, maxing = false, trailing = true;
       if (typeof func != "function") {
         throw new TypeError(FUNC_ERROR_TEXT);
@@ -11724,6 +12425,9 @@ var require_index_001 = __commonJS({
         return false;
       return e instanceof Element;
     };
+    const isPropAbsent = (prop) => {
+      return isNil(prop);
+    };
     const isStringNumber = (val) => {
       if (!isString$1(val)) {
         return false;
@@ -11732,6 +12436,7 @@ var require_index_001 = __commonJS({
     };
     const escapeStringRegexp = (string2 = "") => string2.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&").replace(/-/g, "\\x2d");
     const capitalize = (str) => capitalize$1(str);
+    const keysOf = (arr) => Object.keys(arr);
     const getProp = (obj, path, defaultValue) => {
       return {
         get value() {
@@ -11753,6 +12458,41 @@ var require_index_001 = __commonJS({
     }
     function debugWarn(scope, message) {
     }
+    const classNameToArray = (cls = "") => cls.split(" ").filter((item) => !!item.trim());
+    const hasClass = (el, cls) => {
+      if (!el || !cls)
+        return false;
+      if (cls.includes(" "))
+        throw new Error("className should not contain space.");
+      return el.classList.contains(cls);
+    };
+    const addClass = (el, cls) => {
+      if (!el || !cls.trim())
+        return;
+      el.classList.add(...classNameToArray(cls));
+    };
+    const removeClass = (el, cls) => {
+      if (!el || !cls.trim())
+        return;
+      el.classList.remove(...classNameToArray(cls));
+    };
+    const getStyle = (element, styleName) => {
+      var _a2;
+      if (!isClient || !element || !styleName)
+        return "";
+      let key = camelize(styleName);
+      if (key === "float")
+        key = "cssFloat";
+      try {
+        const style = element.style[key];
+        if (style)
+          return style;
+        const computed2 = (_a2 = document.defaultView) == null ? void 0 : _a2.getComputedStyle(element, "");
+        return computed2 ? computed2[key] : "";
+      } catch (e) {
+        return element.style[key];
+      }
+    };
     function addUnit(value, defaultUnit = "px") {
       if (!value)
         return "";
@@ -11762,6 +12502,30 @@ var require_index_001 = __commonJS({
         return value;
       }
     }
+    let scrollBarWidth;
+    const getScrollBarWidth = (namespace) => {
+      var _a2;
+      if (!isClient)
+        return 0;
+      if (scrollBarWidth !== void 0)
+        return scrollBarWidth;
+      const outer = document.createElement("div");
+      outer.className = `${namespace}-scrollbar__wrap`;
+      outer.style.visibility = "hidden";
+      outer.style.width = "100px";
+      outer.style.position = "absolute";
+      outer.style.top = "-9999px";
+      document.body.appendChild(outer);
+      const widthNoScroll = outer.offsetWidth;
+      outer.style.overflow = "scroll";
+      const inner = document.createElement("div");
+      inner.style.width = "100%";
+      outer.appendChild(inner);
+      const widthWithScroll = inner.offsetWidth;
+      (_a2 = outer.parentNode) == null ? void 0 : _a2.removeChild(outer);
+      scrollBarWidth = widthNoScroll - widthWithScroll;
+      return scrollBarWidth;
+    };
     function scrollIntoView(container, selected) {
       if (!isClient)
         return;
@@ -11870,6 +12634,22 @@ var require_index_001 = __commonJS({
       }
     });
     var circle_check_default = circle_check_vue_vue_type_script_setup_true_lang_default;
+    var circle_close_filled_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
+      name: "CircleCloseFilled",
+      __name: "circle-close-filled",
+      setup(__props) {
+        return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+          xmlns: "http://www.w3.org/2000/svg",
+          viewBox: "0 0 1024 1024"
+        }, [
+          createBaseVNode("path", {
+            fill: "currentColor",
+            d: "M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m0 393.664L407.936 353.6a38.4 38.4 0 1 0-54.336 54.336L457.664 512 353.6 616.064a38.4 38.4 0 1 0 54.336 54.336L512 566.336 616.064 670.4a38.4 38.4 0 1 0 54.336-54.336L566.336 512 670.4 407.936a38.4 38.4 0 1 0-54.336-54.336z"
+          })
+        ]));
+      }
+    });
+    var circle_close_filled_default = circle_close_filled_vue_vue_type_script_setup_true_lang_default;
     var circle_close_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
       name: "CircleClose",
       __name: "circle-close",
@@ -11926,6 +12706,22 @@ var require_index_001 = __commonJS({
       }
     });
     var hide_default = hide_vue_vue_type_script_setup_true_lang_default;
+    var info_filled_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
+      name: "InfoFilled",
+      __name: "info-filled",
+      setup(__props) {
+        return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+          xmlns: "http://www.w3.org/2000/svg",
+          viewBox: "0 0 1024 1024"
+        }, [
+          createBaseVNode("path", {
+            fill: "currentColor",
+            d: "M512 64a448 448 0 1 1 0 896.064A448 448 0 0 1 512 64m67.2 275.072c33.28 0 60.288-23.104 60.288-57.344s-27.072-57.344-60.288-57.344c-33.28 0-60.16 23.104-60.16 57.344s26.88 57.344 60.16 57.344M590.912 699.2c0-6.848 2.368-24.64 1.024-34.752l-52.608 60.544c-10.88 11.456-24.512 19.392-30.912 17.28a12.992 12.992 0 0 1-8.256-14.72l87.68-276.992c7.168-35.136-12.544-67.2-54.336-71.296-44.096 0-108.992 44.736-148.48 101.504 0 6.784-1.28 23.68.064 33.792l52.544-60.608c10.88-11.328 23.552-19.328 29.952-17.152a12.8 12.8 0 0 1 7.808 16.128L388.48 728.576c-10.048 32.256 8.96 63.872 55.04 71.04 67.84 0 107.904-43.648 147.456-100.416z"
+          })
+        ]));
+      }
+    });
+    var info_filled_default = info_filled_vue_vue_type_script_setup_true_lang_default;
     var loading_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
       name: "Loading",
       __name: "loading",
@@ -11974,6 +12770,22 @@ var require_index_001 = __commonJS({
       }
     });
     var plus_default = plus_vue_vue_type_script_setup_true_lang_default;
+    var success_filled_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
+      name: "SuccessFilled",
+      __name: "success-filled",
+      setup(__props) {
+        return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+          xmlns: "http://www.w3.org/2000/svg",
+          viewBox: "0 0 1024 1024"
+        }, [
+          createBaseVNode("path", {
+            fill: "currentColor",
+            d: "M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m-55.808 536.384-99.52-99.584a38.4 38.4 0 1 0-54.336 54.336l126.72 126.72a38.272 38.272 0 0 0 54.336 0l262.4-262.464a38.4 38.4 0 1 0-54.272-54.336z"
+          })
+        ]));
+      }
+    });
+    var success_filled_default = success_filled_vue_vue_type_script_setup_true_lang_default;
     var view_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
       name: "View",
       __name: "view",
@@ -11990,6 +12802,22 @@ var require_index_001 = __commonJS({
       }
     });
     var view_default = view_vue_vue_type_script_setup_true_lang_default;
+    var warning_filled_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */ defineComponent({
+      name: "WarningFilled",
+      __name: "warning-filled",
+      setup(__props) {
+        return (_ctx, _cache) => (openBlock(), createElementBlock("svg", {
+          xmlns: "http://www.w3.org/2000/svg",
+          viewBox: "0 0 1024 1024"
+        }, [
+          createBaseVNode("path", {
+            fill: "currentColor",
+            d: "M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m0 192a58.432 58.432 0 0 0-58.24 63.744l23.36 256.384a35.072 35.072 0 0 0 69.76 0l23.296-256.384A58.432 58.432 0 0 0 512 256m0 512a51.2 51.2 0 1 0 0-102.4 51.2 51.2 0 0 0 0 102.4"
+          })
+        ]));
+      }
+    });
+    var warning_filled_default = warning_filled_vue_vue_type_script_setup_true_lang_default;
     const epPropKey = "__epPropKey";
     const definePropType = (val) => val;
     const isEpProp = (val) => isObject$1(val) && !!val[epPropKey];
@@ -12034,6 +12862,22 @@ var require_index_001 = __commonJS({
       Object,
       Function
     ]);
+    const CloseComponents = {
+      Close: close_default
+    };
+    const TypeComponents = {
+      Close: close_default,
+      SuccessFilled: success_filled_default,
+      InfoFilled: info_filled_default,
+      WarningFilled: warning_filled_default,
+      CircleCloseFilled: circle_close_filled_default
+    };
+    const TypeComponentsMap = {
+      success: success_filled_default,
+      warning: warning_filled_default,
+      error: circle_close_filled_default,
+      info: info_filled_default
+    };
     const ValidateComponentsMap = {
       validating: loading_default,
       success: circle_check_default,
@@ -12056,6 +12900,17 @@ var require_index_001 = __commonJS({
       component.install = NOOP;
       return component;
     };
+    const composeRefs = (...refs) => {
+      return (el) => {
+        refs.forEach((ref2) => {
+          if (isFunction$1(ref2)) {
+            ref2(el);
+          } else {
+            ref2.value = el;
+          }
+        });
+      };
+    };
     const EVENT_CODE = {
       tab: "Tab",
       enter: "Enter",
@@ -12077,6 +12932,22 @@ var require_index_001 = __commonJS({
     const CHANGE_EVENT = "change";
     const INPUT_EVENT = "input";
     const componentSizes = ["", "default", "small", "large"];
+    var PatchFlags = /* @__PURE__ */ ((PatchFlags2) => {
+      PatchFlags2[PatchFlags2["TEXT"] = 1] = "TEXT";
+      PatchFlags2[PatchFlags2["CLASS"] = 2] = "CLASS";
+      PatchFlags2[PatchFlags2["STYLE"] = 4] = "STYLE";
+      PatchFlags2[PatchFlags2["PROPS"] = 8] = "PROPS";
+      PatchFlags2[PatchFlags2["FULL_PROPS"] = 16] = "FULL_PROPS";
+      PatchFlags2[PatchFlags2["HYDRATE_EVENTS"] = 32] = "HYDRATE_EVENTS";
+      PatchFlags2[PatchFlags2["STABLE_FRAGMENT"] = 64] = "STABLE_FRAGMENT";
+      PatchFlags2[PatchFlags2["KEYED_FRAGMENT"] = 128] = "KEYED_FRAGMENT";
+      PatchFlags2[PatchFlags2["UNKEYED_FRAGMENT"] = 256] = "UNKEYED_FRAGMENT";
+      PatchFlags2[PatchFlags2["NEED_PATCH"] = 512] = "NEED_PATCH";
+      PatchFlags2[PatchFlags2["DYNAMIC_SLOTS"] = 1024] = "DYNAMIC_SLOTS";
+      PatchFlags2[PatchFlags2["HOISTED"] = -1] = "HOISTED";
+      PatchFlags2[PatchFlags2["BAIL"] = -2] = "BAIL";
+      return PatchFlags2;
+    })(PatchFlags || {});
     const flattedChildren = (children) => {
       const vNodes = isArray$2(children) ? children : [children];
       const result = [];
@@ -12117,6 +12988,71 @@ var require_index_001 = __commonJS({
       watch(() => unref(condition), (val) => {
       }, {
         immediate: true
+      });
+    };
+    const useDraggable = (targetRef, dragRef, draggable, overflow) => {
+      let transform = {
+        offsetX: 0,
+        offsetY: 0
+      };
+      const onMousedown = (e) => {
+        const downX = e.clientX;
+        const downY = e.clientY;
+        const { offsetX, offsetY } = transform;
+        const targetRect = targetRef.value.getBoundingClientRect();
+        const targetLeft = targetRect.left;
+        const targetTop = targetRect.top;
+        const targetWidth = targetRect.width;
+        const targetHeight = targetRect.height;
+        const clientWidth = document.documentElement.clientWidth;
+        const clientHeight = document.documentElement.clientHeight;
+        const minLeft = -targetLeft + offsetX;
+        const minTop = -targetTop + offsetY;
+        const maxLeft = clientWidth - targetLeft - targetWidth + offsetX;
+        const maxTop = clientHeight - targetTop - targetHeight + offsetY;
+        const onMousemove = (e2) => {
+          let moveX = offsetX + e2.clientX - downX;
+          let moveY = offsetY + e2.clientY - downY;
+          if (!(overflow == null ? void 0 : overflow.value)) {
+            moveX = Math.min(Math.max(moveX, minLeft), maxLeft);
+            moveY = Math.min(Math.max(moveY, minTop), maxTop);
+          }
+          transform = {
+            offsetX: moveX,
+            offsetY: moveY
+          };
+          if (targetRef.value) {
+            targetRef.value.style.transform = `translate(${addUnit(moveX)}, ${addUnit(moveY)})`;
+          }
+        };
+        const onMouseup = () => {
+          document.removeEventListener("mousemove", onMousemove);
+          document.removeEventListener("mouseup", onMouseup);
+        };
+        document.addEventListener("mousemove", onMousemove);
+        document.addEventListener("mouseup", onMouseup);
+      };
+      const onDraggable = () => {
+        if (dragRef.value && targetRef.value) {
+          dragRef.value.addEventListener("mousedown", onMousedown);
+        }
+      };
+      const offDraggable = () => {
+        if (dragRef.value && targetRef.value) {
+          dragRef.value.removeEventListener("mousedown", onMousedown);
+        }
+      };
+      onMounted(() => {
+        watchEffect(() => {
+          if (draggable.value) {
+            onDraggable();
+          } else {
+            offDraggable();
+          }
+        });
+      });
+      onBeforeUnmount(() => {
+        offDraggable();
       });
     };
     var English = {
@@ -12310,7 +13246,7 @@ var require_index_001 = __commonJS({
     };
     const localeContextKey = Symbol("localeContextKey");
     const useLocale = (localeOverrides) => {
-      const locale = inject(localeContextKey, ref());
+      const locale = localeOverrides || inject(localeContextKey, ref());
       return buildLocaleContext(computed(() => locale.value || English));
     };
     const defaultNamespace = "el";
@@ -12330,14 +13266,14 @@ var require_index_001 = __commonJS({
     };
     const namespaceContextKey = Symbol("namespaceContextKey");
     const useGetDerivedNamespace = (namespaceOverrides) => {
-      const derivedNamespace = getCurrentInstance() ? inject(namespaceContextKey, ref(defaultNamespace)) : ref(defaultNamespace);
+      const derivedNamespace = namespaceOverrides || (getCurrentInstance() ? inject(namespaceContextKey, ref(defaultNamespace)) : ref(defaultNamespace));
       const namespace = computed(() => {
         return unref(derivedNamespace) || defaultNamespace;
       });
       return namespace;
     };
     const useNamespace = (block, namespaceOverrides) => {
-      const namespace = useGetDerivedNamespace();
+      const namespace = useGetDerivedNamespace(namespaceOverrides);
       const b = (blockSuffix = "") => _bem(namespace.value, block, blockSuffix, "", "");
       const e = (element) => element ? _bem(namespace.value, block, "", element, "") : "";
       const m = (modifier) => modifier ? _bem(namespace.value, block, "", "", modifier) : "";
@@ -12384,6 +13320,45 @@ var require_index_001 = __commonJS({
         cssVarBlock,
         cssVarBlockName
       };
+    };
+    const useLockscreen = (trigger2, options = {}) => {
+      if (!isRef(trigger2)) {
+        throwError("[useLockscreen]", "You need to pass a ref param to this function");
+      }
+      const ns = options.ns || useNamespace("popup");
+      const hiddenCls = computed(() => ns.bm("parent", "hidden"));
+      if (!isClient || hasClass(document.body, hiddenCls.value)) {
+        return;
+      }
+      let scrollBarWidth2 = 0;
+      let withoutHiddenClass = false;
+      let bodyWidth = "0";
+      const cleanup = () => {
+        setTimeout(() => {
+          removeClass(document == null ? void 0 : document.body, hiddenCls.value);
+          if (withoutHiddenClass && document) {
+            document.body.style.width = bodyWidth;
+          }
+        }, 200);
+      };
+      watch(trigger2, (val) => {
+        if (!val) {
+          cleanup();
+          return;
+        }
+        withoutHiddenClass = !hasClass(document.body, hiddenCls.value);
+        if (withoutHiddenClass) {
+          bodyWidth = document.body.style.width;
+        }
+        scrollBarWidth2 = getScrollBarWidth(ns.namespace.value);
+        const bodyHasOverflow = document.documentElement.clientHeight < document.body.scrollHeight;
+        const bodyOverflowY = getStyle(document.body, "overflowY");
+        if (scrollBarWidth2 > 0 && (bodyHasOverflow || bodyOverflowY === "scroll") && withoutHiddenClass) {
+          document.body.style.width = `calc(100% - ${scrollBarWidth2}px)`;
+        }
+        addClass(document.body, hiddenCls.value);
+      });
+      onScopeDispose(() => cleanup());
     };
     const _prop = buildProp({
       type: definePropType(Boolean),
@@ -13139,6 +14114,26 @@ var require_index_001 = __commonJS({
         attributes
       };
     }
+    const useSameTarget = (handleClick) => {
+      if (!handleClick) {
+        return { onClick: NOOP, onMousedown: NOOP, onMouseup: NOOP };
+      }
+      let mousedownTarget = false;
+      let mouseupTarget = false;
+      const onClick = (e) => {
+        if (mousedownTarget && mouseupTarget) {
+          handleClick(e);
+        }
+        mousedownTarget = mouseupTarget = false;
+      };
+      const onMousedown = (e) => {
+        mousedownTarget = e.target === e.currentTarget;
+      };
+      const onMouseup = (e) => {
+        mouseupTarget = e.target === e.currentTarget;
+      };
+      return { onClick, onMousedown, onMouseup };
+    };
     function useTimeout() {
       let timeoutHandle;
       const registerTimeout = (fn2, delay) => {
@@ -13301,7 +14296,7 @@ var require_index_001 = __commonJS({
     const zIndexContextKey = Symbol("zIndexContextKey");
     const useZIndex = (zIndexOverrides) => {
       const increasingInjection = getCurrentInstance() ? inject(ZINDEX_INJECTION_KEY, initial) : initial;
-      const zIndexInjection = getCurrentInstance() ? inject(zIndexContextKey, void 0) : void 0;
+      const zIndexInjection = zIndexOverrides || (getCurrentInstance() ? inject(zIndexContextKey, void 0) : void 0);
       const initialZIndex = computed(() => {
         const zIndexFromInjection = unref(zIndexInjection);
         return isNumber(zIndexFromInjection) ? zIndexFromInjection : defaultInitialZIndex;
@@ -13486,14 +14481,80 @@ var require_index_001 = __commonJS({
     const globalConfig = ref();
     function useGlobalConfig(key, defaultValue = void 0) {
       const config = getCurrentInstance() ? inject(configProviderContextKey, globalConfig) : globalConfig;
-      {
+      if (key) {
         return computed(() => {
           var _a2, _b;
           return (_b = (_a2 = config.value) == null ? void 0 : _a2[key]) != null ? _b : defaultValue;
         });
+      } else {
+        return config;
       }
     }
-    var _export_sfc$1 = (sfc, props) => {
+    function useGlobalComponentSettings(block, sizeFallback) {
+      const config = useGlobalConfig();
+      const ns = useNamespace(block, computed(() => {
+        var _a2;
+        return ((_a2 = config.value) == null ? void 0 : _a2.namespace) || defaultNamespace;
+      }));
+      const locale = useLocale(computed(() => {
+        var _a2;
+        return (_a2 = config.value) == null ? void 0 : _a2.locale;
+      }));
+      const zIndex2 = useZIndex(computed(() => {
+        var _a2;
+        return ((_a2 = config.value) == null ? void 0 : _a2.zIndex) || defaultInitialZIndex;
+      }));
+      const size = computed(() => {
+        var _a2;
+        return unref(sizeFallback) || ((_a2 = config.value) == null ? void 0 : _a2.size) || "";
+      });
+      provideGlobalConfig(computed(() => unref(config) || {}));
+      return {
+        ns,
+        locale,
+        zIndex: zIndex2,
+        size
+      };
+    }
+    const provideGlobalConfig = (config, app2, global2 = false) => {
+      var _a2;
+      const inSetup = !!getCurrentInstance();
+      const oldConfig = inSetup ? useGlobalConfig() : void 0;
+      const provideFn = (_a2 = void 0) != null ? _a2 : inSetup ? provide : void 0;
+      if (!provideFn) {
+        return;
+      }
+      const context = computed(() => {
+        const cfg = unref(config);
+        if (!(oldConfig == null ? void 0 : oldConfig.value))
+          return cfg;
+        return mergeConfig(oldConfig.value, cfg);
+      });
+      provideFn(configProviderContextKey, context);
+      provideFn(localeContextKey, computed(() => context.value.locale));
+      provideFn(namespaceContextKey, computed(() => context.value.namespace));
+      provideFn(zIndexContextKey, computed(() => context.value.zIndex));
+      provideFn(SIZE_INJECTION_KEY, {
+        size: computed(() => context.value.size || "")
+      });
+      provideFn(emptyValuesContextKey, computed(() => ({
+        emptyValues: context.value.emptyValues,
+        valueOnClear: context.value.valueOnClear
+      })));
+      if (global2 || !globalConfig.value) {
+        globalConfig.value = context.value;
+      }
+      return context;
+    };
+    const mergeConfig = (a, b) => {
+      const keys2 = [.../* @__PURE__ */ new Set([...keysOf(a), ...keysOf(b)])];
+      const obj = {};
+      for (const key of keys2) {
+        obj[key] = b[key] !== void 0 ? b[key] : a[key];
+      }
+      return obj;
+    };
+    var _export_sfc = (sfc, props) => {
       const target = sfc.__vccOpts || sfc;
       for (const [key, val] of props) {
         target[key] = val;
@@ -13508,12 +14569,12 @@ var require_index_001 = __commonJS({
         type: String
       }
     });
-    const __default__$q = /* @__PURE__ */ defineComponent({
+    const __default__$w = /* @__PURE__ */ defineComponent({
       name: "ElIcon",
       inheritAttrs: false
     });
-    const _sfc_main$D = /* @__PURE__ */ defineComponent({
-      ...__default__$q,
+    const _sfc_main$N = /* @__PURE__ */ defineComponent({
+      ...__default__$w,
       props: iconProps,
       setup(__props) {
         const props = __props;
@@ -13537,8 +14598,133 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Icon = /* @__PURE__ */ _export_sfc$1(_sfc_main$D, [["__file", "icon.vue"]]);
+    var Icon = /* @__PURE__ */ _export_sfc(_sfc_main$N, [["__file", "icon.vue"]]);
     const ElIcon = withInstall(Icon);
+    const alertEffects = ["light", "dark"];
+    const alertProps = buildProps({
+      title: {
+        type: String,
+        default: ""
+      },
+      description: {
+        type: String,
+        default: ""
+      },
+      type: {
+        type: String,
+        values: keysOf(TypeComponentsMap),
+        default: "info"
+      },
+      closable: {
+        type: Boolean,
+        default: true
+      },
+      closeText: {
+        type: String,
+        default: ""
+      },
+      showIcon: Boolean,
+      center: Boolean,
+      effect: {
+        type: String,
+        values: alertEffects,
+        default: "light"
+      }
+    });
+    const alertEmits = {
+      close: (evt) => evt instanceof MouseEvent
+    };
+    const __default__$v = /* @__PURE__ */ defineComponent({
+      name: "ElAlert"
+    });
+    const _sfc_main$M = /* @__PURE__ */ defineComponent({
+      ...__default__$v,
+      props: alertProps,
+      emits: alertEmits,
+      setup(__props, { emit: emit2 }) {
+        const props = __props;
+        const { Close } = TypeComponents;
+        const slots = useSlots();
+        const ns = useNamespace("alert");
+        const visible = ref(true);
+        const iconComponent = computed(() => TypeComponentsMap[props.type]);
+        const iconClass = computed(() => [
+          ns.e("icon"),
+          { [ns.is("big")]: !!props.description || !!slots.default }
+        ]);
+        const withDescription = computed(() => {
+          return { "with-description": props.description || slots.default };
+        });
+        const close = (evt) => {
+          visible.value = false;
+          emit2("close", evt);
+        };
+        return (_ctx, _cache) => {
+          return openBlock(), createBlock(Transition, {
+            name: unref(ns).b("fade"),
+            persisted: ""
+          }, {
+            default: withCtx(() => [
+              withDirectives(createBaseVNode("div", {
+                class: normalizeClass([unref(ns).b(), unref(ns).m(_ctx.type), unref(ns).is("center", _ctx.center), unref(ns).is(_ctx.effect)]),
+                role: "alert"
+              }, [
+                _ctx.showIcon && unref(iconComponent) ? (openBlock(), createBlock(unref(ElIcon), {
+                  key: 0,
+                  class: normalizeClass(unref(iconClass))
+                }, {
+                  default: withCtx(() => [
+                    (openBlock(), createBlock(resolveDynamicComponent(unref(iconComponent))))
+                  ]),
+                  _: 1
+                }, 8, ["class"])) : createCommentVNode("v-if", true),
+                createBaseVNode("div", {
+                  class: normalizeClass(unref(ns).e("content"))
+                }, [
+                  _ctx.title || _ctx.$slots.title ? (openBlock(), createElementBlock("span", {
+                    key: 0,
+                    class: normalizeClass([unref(ns).e("title"), unref(withDescription)])
+                  }, [
+                    renderSlot(_ctx.$slots, "title", {}, () => [
+                      createTextVNode(toDisplayString(_ctx.title), 1)
+                    ])
+                  ], 2)) : createCommentVNode("v-if", true),
+                  _ctx.$slots.default || _ctx.description ? (openBlock(), createElementBlock("p", {
+                    key: 1,
+                    class: normalizeClass(unref(ns).e("description"))
+                  }, [
+                    renderSlot(_ctx.$slots, "default", {}, () => [
+                      createTextVNode(toDisplayString(_ctx.description), 1)
+                    ])
+                  ], 2)) : createCommentVNode("v-if", true),
+                  _ctx.closable ? (openBlock(), createElementBlock(Fragment, { key: 2 }, [
+                    _ctx.closeText ? (openBlock(), createElementBlock("div", {
+                      key: 0,
+                      class: normalizeClass([unref(ns).e("close-btn"), unref(ns).is("customed")]),
+                      onClick: close
+                    }, toDisplayString(_ctx.closeText), 3)) : (openBlock(), createBlock(unref(ElIcon), {
+                      key: 1,
+                      class: normalizeClass(unref(ns).e("close-btn")),
+                      onClick: close
+                    }, {
+                      default: withCtx(() => [
+                        createVNode(unref(Close))
+                      ]),
+                      _: 1
+                    }, 8, ["class"]))
+                  ], 64)) : createCommentVNode("v-if", true)
+                ], 2)
+              ], 2), [
+                [vShow, visible.value]
+              ])
+            ]),
+            _: 3
+          }, 8, ["name"]);
+        };
+      }
+    });
+    var Alert = /* @__PURE__ */ _export_sfc(_sfc_main$M, [["__file", "alert.vue"]]);
+    const ElAlert = withInstall(Alert);
     const formContextKey = Symbol("formContextKey");
     const formItemContextKey = Symbol("formItemContextKey");
     const useFormSize = (fallback, ignore = {}) => {
@@ -13693,11 +14879,11 @@ var require_index_001 = __commonJS({
       return normalized.length > 0 ? fields.filter((field) => field.prop && normalized.includes(field.prop)) : fields;
     };
     const COMPONENT_NAME$7 = "ElForm";
-    const __default__$p = /* @__PURE__ */ defineComponent({
+    const __default__$u = /* @__PURE__ */ defineComponent({
       name: COMPONENT_NAME$7
     });
-    const _sfc_main$C = /* @__PURE__ */ defineComponent({
-      ...__default__$p,
+    const _sfc_main$L = /* @__PURE__ */ defineComponent({
+      ...__default__$u,
       props: formProps,
       emits: formEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -13830,7 +15016,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Form = /* @__PURE__ */ _export_sfc$1(_sfc_main$C, [["__file", "form.vue"]]);
+    var Form = /* @__PURE__ */ _export_sfc(_sfc_main$L, [["__file", "form.vue"]]);
     var define_process_env_default = {};
     function _extends() {
       _extends = Object.assign ? Object.assign.bind() : function(target) {
@@ -15010,12 +16196,12 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    const _hoisted_1$b = ["role", "aria-labelledby"];
-    const __default__$o = /* @__PURE__ */ defineComponent({
+    const _hoisted_1$i = ["role", "aria-labelledby"];
+    const __default__$t = /* @__PURE__ */ defineComponent({
       name: "ElFormItem"
     });
-    const _sfc_main$B = /* @__PURE__ */ defineComponent({
-      ...__default__$o,
+    const _sfc_main$K = /* @__PURE__ */ defineComponent({
+      ...__default__$t,
       props: formItemProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -15311,11 +16497,11 @@ var require_index_001 = __commonJS({
                 _: 3
               }, 8, ["name"])
             ], 6)
-          ], 10, _hoisted_1$b);
+          ], 10, _hoisted_1$i);
         };
       }
     });
-    var FormItem = /* @__PURE__ */ _export_sfc$1(_sfc_main$B, [["__file", "form-item.vue"]]);
+    var FormItem = /* @__PURE__ */ _export_sfc(_sfc_main$K, [["__file", "form-item.vue"]]);
     const ElForm = withInstall(Form, {
       FormItem
     });
@@ -15504,15 +16690,15 @@ var require_index_001 = __commonJS({
       compositionupdate: (evt) => evt instanceof CompositionEvent,
       compositionend: (evt) => evt instanceof CompositionEvent
     };
-    const _hoisted_1$a = ["role"];
-    const _hoisted_2$5 = ["id", "minlength", "maxlength", "type", "disabled", "readonly", "autocomplete", "tabindex", "aria-label", "placeholder", "form", "autofocus"];
-    const _hoisted_3$2 = ["id", "minlength", "maxlength", "tabindex", "disabled", "readonly", "autocomplete", "aria-label", "placeholder", "form", "autofocus"];
-    const __default__$n = /* @__PURE__ */ defineComponent({
+    const _hoisted_1$h = ["role"];
+    const _hoisted_2$7 = ["id", "minlength", "maxlength", "type", "disabled", "readonly", "autocomplete", "tabindex", "aria-label", "placeholder", "form", "autofocus"];
+    const _hoisted_3$4 = ["id", "minlength", "maxlength", "tabindex", "disabled", "readonly", "autocomplete", "aria-label", "placeholder", "form", "autofocus"];
+    const __default__$s = /* @__PURE__ */ defineComponent({
       name: "ElInput",
       inheritAttrs: false
     });
-    const _sfc_main$A = /* @__PURE__ */ defineComponent({
-      ...__default__$n,
+    const _sfc_main$J = /* @__PURE__ */ defineComponent({
+      ...__default__$s,
       props: inputProps,
       emits: inputEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -15835,7 +17021,7 @@ var require_index_001 = __commonJS({
                   onBlur: _cache[1] || (_cache[1] = (...args) => unref(handleBlur) && unref(handleBlur)(...args)),
                   onChange: handleChange,
                   onKeydown: handleKeydown
-                }), null, 16, _hoisted_2$5),
+                }), null, 16, _hoisted_2$7),
                 createCommentVNode(" suffix slot "),
                 unref(suffixVisible) ? (openBlock(), createElementBlock("span", {
                   key: 1,
@@ -15935,18 +17121,18 @@ var require_index_001 = __commonJS({
                 onBlur: _cache[3] || (_cache[3] = (...args) => unref(handleBlur) && unref(handleBlur)(...args)),
                 onChange: handleChange,
                 onKeydown: handleKeydown
-              }), null, 16, _hoisted_3$2),
+              }), null, 16, _hoisted_3$4),
               unref(isWordLimitVisible) ? (openBlock(), createElementBlock("span", {
                 key: 0,
                 style: normalizeStyle(countStyle.value),
                 class: normalizeClass(unref(nsInput).e("count"))
               }, toDisplayString(unref(textLength)) + " / " + toDisplayString(_ctx.maxlength), 7)) : createCommentVNode("v-if", true)
             ], 64))
-          ], 16, _hoisted_1$a);
+          ], 16, _hoisted_1$h);
         };
       }
     });
-    var Input = /* @__PURE__ */ _export_sfc$1(_sfc_main$A, [["__file", "input.vue"]]);
+    var Input = /* @__PURE__ */ _export_sfc(_sfc_main$J, [["__file", "input.vue"]]);
     const ElInput = withInstall(Input);
     const GAP = 4;
     const BAR_MAP = {
@@ -15991,7 +17177,7 @@ var require_index_001 = __commonJS({
       always: Boolean
     });
     const COMPONENT_NAME$5 = "Thumb";
-    const _sfc_main$z = /* @__PURE__ */ defineComponent({
+    const _sfc_main$I = /* @__PURE__ */ defineComponent({
       __name: "thumb",
       props: thumbProps,
       setup(__props) {
@@ -16110,7 +17296,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Thumb = /* @__PURE__ */ _export_sfc$1(_sfc_main$z, [["__file", "thumb.vue"]]);
+    var Thumb = /* @__PURE__ */ _export_sfc(_sfc_main$I, [["__file", "thumb.vue"]]);
     const barProps = buildProps({
       always: {
         type: Boolean,
@@ -16121,7 +17307,7 @@ var require_index_001 = __commonJS({
         required: true
       }
     });
-    const _sfc_main$y = /* @__PURE__ */ defineComponent({
+    const _sfc_main$H = /* @__PURE__ */ defineComponent({
       __name: "bar",
       props: barProps,
       setup(__props, { expose }) {
@@ -16179,7 +17365,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Bar = /* @__PURE__ */ _export_sfc$1(_sfc_main$y, [["__file", "bar.vue"]]);
+    var Bar = /* @__PURE__ */ _export_sfc(_sfc_main$H, [["__file", "bar.vue"]]);
     const scrollbarProps = buildProps({
       height: {
         type: [String, Number],
@@ -16230,11 +17416,11 @@ var require_index_001 = __commonJS({
       }) => [scrollTop, scrollLeft].every(isNumber)
     };
     const COMPONENT_NAME$4 = "ElScrollbar";
-    const __default__$m = /* @__PURE__ */ defineComponent({
+    const __default__$r = /* @__PURE__ */ defineComponent({
       name: COMPONENT_NAME$4
     });
-    const _sfc_main$x = /* @__PURE__ */ defineComponent({
-      ...__default__$m,
+    const _sfc_main$G = /* @__PURE__ */ defineComponent({
+      ...__default__$r,
       props: scrollbarProps,
       emits: scrollbarEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -16375,7 +17561,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Scrollbar = /* @__PURE__ */ _export_sfc$1(_sfc_main$x, [["__file", "scrollbar.vue"]]);
+    var Scrollbar = /* @__PURE__ */ _export_sfc(_sfc_main$G, [["__file", "scrollbar.vue"]]);
     const ElScrollbar = withInstall(Scrollbar);
     const POPPER_INJECTION_KEY = Symbol("popper");
     const POPPER_CONTENT_INJECTION_KEY = Symbol("popperContent");
@@ -16396,12 +17582,12 @@ var require_index_001 = __commonJS({
         default: "tooltip"
       }
     });
-    const __default__$l = /* @__PURE__ */ defineComponent({
+    const __default__$q = /* @__PURE__ */ defineComponent({
       name: "ElPopper",
       inheritAttrs: false
     });
-    const _sfc_main$w = /* @__PURE__ */ defineComponent({
-      ...__default__$l,
+    const _sfc_main$F = /* @__PURE__ */ defineComponent({
+      ...__default__$q,
       props: popperProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -16424,19 +17610,19 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Popper = /* @__PURE__ */ _export_sfc$1(_sfc_main$w, [["__file", "popper.vue"]]);
+    var Popper = /* @__PURE__ */ _export_sfc(_sfc_main$F, [["__file", "popper.vue"]]);
     const popperArrowProps = buildProps({
       arrowOffset: {
         type: Number,
         default: 5
       }
     });
-    const __default__$k = /* @__PURE__ */ defineComponent({
+    const __default__$p = /* @__PURE__ */ defineComponent({
       name: "ElPopperArrow",
       inheritAttrs: false
     });
-    const _sfc_main$v = /* @__PURE__ */ defineComponent({
-      ...__default__$k,
+    const _sfc_main$E = /* @__PURE__ */ defineComponent({
+      ...__default__$p,
       props: popperArrowProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -16462,7 +17648,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ElPopperArrow = /* @__PURE__ */ _export_sfc$1(_sfc_main$v, [["__file", "arrow.vue"]]);
+    var ElPopperArrow = /* @__PURE__ */ _export_sfc(_sfc_main$E, [["__file", "arrow.vue"]]);
     const NAME = "ElOnlyChild";
     const OnlyChild = /* @__PURE__ */ defineComponent({
       name: NAME,
@@ -16546,12 +17732,12 @@ var require_index_001 = __commonJS({
       id: String,
       open: Boolean
     });
-    const __default__$j = /* @__PURE__ */ defineComponent({
+    const __default__$o = /* @__PURE__ */ defineComponent({
       name: "ElPopperTrigger",
       inheritAttrs: false
     });
-    const _sfc_main$u = /* @__PURE__ */ defineComponent({
-      ...__default__$j,
+    const _sfc_main$D = /* @__PURE__ */ defineComponent({
+      ...__default__$o,
       props: popperTriggerProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -16649,7 +17835,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ElPopperTrigger = /* @__PURE__ */ _export_sfc$1(_sfc_main$u, [["__file", "trigger.vue"]]);
+    var ElPopperTrigger = /* @__PURE__ */ _export_sfc(_sfc_main$D, [["__file", "trigger.vue"]]);
     const FOCUS_AFTER_TRAPPED = "focus-trap.focus-after-trapped";
     const FOCUS_AFTER_RELEASED = "focus-trap.focus-after-released";
     const FOCUSOUT_PREVENTED = "focus-trap.focusout-prevented";
@@ -16796,7 +17982,7 @@ var require_index_001 = __commonJS({
         detail
       });
     };
-    const _sfc_main$t = /* @__PURE__ */ defineComponent({
+    const _sfc_main$C = /* @__PURE__ */ defineComponent({
       name: "ElFocusTrap",
       inheritAttrs: false,
       props: {
@@ -17032,10 +18218,10 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
+    function _sfc_render$8(_ctx, _cache, $props, $setup, $data, $options) {
       return renderSlot(_ctx.$slots, "default", { handleKeydown: _ctx.onKeydown });
     }
-    var ElFocusTrap = /* @__PURE__ */ _export_sfc$1(_sfc_main$t, [["render", _sfc_render$7], ["__file", "focus-trap.vue"]]);
+    var ElFocusTrap = /* @__PURE__ */ _export_sfc(_sfc_main$C, [["render", _sfc_render$8], ["__file", "focus-trap.vue"]]);
     const POSITIONING_STRATEGIES = ["fixed", "absolute"];
     const popperCoreConfigProps = buildProps({
       boundariesPadding: {
@@ -17317,11 +18503,11 @@ var require_index_001 = __commonJS({
         onReleaseRequested
       };
     };
-    const __default__$i = /* @__PURE__ */ defineComponent({
+    const __default__$n = /* @__PURE__ */ defineComponent({
       name: "ElPopperContent"
     });
-    const _sfc_main$s = /* @__PURE__ */ defineComponent({
-      ...__default__$i,
+    const _sfc_main$B = /* @__PURE__ */ defineComponent({
+      ...__default__$n,
       props: popperContentProps,
       emits: popperContentEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -17437,7 +18623,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ElPopperContent = /* @__PURE__ */ _export_sfc$1(_sfc_main$s, [["__file", "content.vue"]]);
+    var ElPopperContent = /* @__PURE__ */ _export_sfc(_sfc_main$B, [["__file", "content.vue"]]);
     const ElPopper = withInstall(Popper);
     const TOOLTIP_INJECTION_KEY = Symbol("elTooltip");
     const useTooltipContentProps = buildProps({
@@ -17515,11 +18701,11 @@ var require_index_001 = __commonJS({
         isTriggerType(unref(trigger2), type) && handler(e);
       };
     };
-    const __default__$h = /* @__PURE__ */ defineComponent({
+    const __default__$m = /* @__PURE__ */ defineComponent({
       name: "ElTooltipTrigger"
     });
-    const _sfc_main$r = /* @__PURE__ */ defineComponent({
-      ...__default__$h,
+    const _sfc_main$A = /* @__PURE__ */ defineComponent({
+      ...__default__$m,
       props: useTooltipTriggerProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -17578,13 +18764,13 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ElTooltipTrigger = /* @__PURE__ */ _export_sfc$1(_sfc_main$r, [["__file", "trigger.vue"]]);
-    const __default__$g = /* @__PURE__ */ defineComponent({
+    var ElTooltipTrigger = /* @__PURE__ */ _export_sfc(_sfc_main$A, [["__file", "trigger.vue"]]);
+    const __default__$l = /* @__PURE__ */ defineComponent({
       name: "ElTooltipContent",
       inheritAttrs: false
     });
-    const _sfc_main$q = /* @__PURE__ */ defineComponent({
-      ...__default__$g,
+    const _sfc_main$z = /* @__PURE__ */ defineComponent({
+      ...__default__$l,
       props: useTooltipContentProps,
       setup(__props, { expose }) {
         const props = __props;
@@ -17742,14 +18928,14 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ElTooltipContent = /* @__PURE__ */ _export_sfc$1(_sfc_main$q, [["__file", "content.vue"]]);
-    const _hoisted_1$9 = ["innerHTML"];
-    const _hoisted_2$4 = { key: 1 };
-    const __default__$f = /* @__PURE__ */ defineComponent({
+    var ElTooltipContent = /* @__PURE__ */ _export_sfc(_sfc_main$z, [["__file", "content.vue"]]);
+    const _hoisted_1$g = ["innerHTML"];
+    const _hoisted_2$6 = { key: 1 };
+    const __default__$k = /* @__PURE__ */ defineComponent({
       name: "ElTooltip"
     });
-    const _sfc_main$p = /* @__PURE__ */ defineComponent({
-      ...__default__$f,
+    const _sfc_main$y = /* @__PURE__ */ defineComponent({
+      ...__default__$k,
       props: useTooltipProps,
       emits: tooltipEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -17886,7 +19072,7 @@ var require_index_001 = __commonJS({
                     _ctx.rawContent ? (openBlock(), createElementBlock("span", {
                       key: 0,
                       innerHTML: _ctx.content
-                    }, null, 8, _hoisted_1$9)) : (openBlock(), createElementBlock("span", _hoisted_2$4, toDisplayString(_ctx.content), 1))
+                    }, null, 8, _hoisted_1$g)) : (openBlock(), createElementBlock("span", _hoisted_2$6, toDisplayString(_ctx.content), 1))
                   ]),
                   _ctx.showArrow ? (openBlock(), createBlock(unref(ElPopperArrow), {
                     key: 0,
@@ -17901,7 +19087,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Tooltip = /* @__PURE__ */ _export_sfc$1(_sfc_main$p, [["__file", "tooltip.vue"]]);
+    var Tooltip = /* @__PURE__ */ _export_sfc(_sfc_main$y, [["__file", "tooltip.vue"]]);
     const ElTooltip = withInstall(Tooltip);
     const buttonGroupContextKey = Symbol("buttonGroupContextKey");
     const useButton = (props, emit2) => {
@@ -18956,11 +20142,11 @@ var require_index_001 = __commonJS({
         return styles;
       });
     }
-    const __default__$e = /* @__PURE__ */ defineComponent({
+    const __default__$j = /* @__PURE__ */ defineComponent({
       name: "ElButton"
     });
-    const _sfc_main$o = /* @__PURE__ */ defineComponent({
-      ...__default__$e,
+    const _sfc_main$x = /* @__PURE__ */ defineComponent({
+      ...__default__$j,
       props: buttonProps,
       emits: buttonEmits,
       setup(__props, { expose, emit: emit2 }) {
@@ -19026,16 +20212,16 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Button = /* @__PURE__ */ _export_sfc$1(_sfc_main$o, [["__file", "button.vue"]]);
+    var Button = /* @__PURE__ */ _export_sfc(_sfc_main$x, [["__file", "button.vue"]]);
     const buttonGroupProps = {
       size: buttonProps.size,
       type: buttonProps.type
     };
-    const __default__$d = /* @__PURE__ */ defineComponent({
+    const __default__$i = /* @__PURE__ */ defineComponent({
       name: "ElButtonGroup"
     });
-    const _sfc_main$n = /* @__PURE__ */ defineComponent({
-      ...__default__$d,
+    const _sfc_main$w = /* @__PURE__ */ defineComponent({
+      ...__default__$i,
       props: buttonGroupProps,
       setup(__props) {
         const props = __props;
@@ -19053,7 +20239,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var ButtonGroup = /* @__PURE__ */ _export_sfc$1(_sfc_main$n, [["__file", "button-group.vue"]]);
+    var ButtonGroup = /* @__PURE__ */ _export_sfc(_sfc_main$w, [["__file", "button-group.vue"]]);
     const ElButton = withInstall(Button, {
       ButtonGroup
     });
@@ -19158,6 +20344,320 @@ var require_index_001 = __commonJS({
         });
       }
     };
+    const radioPropsBase = buildProps({
+      modelValue: {
+        type: [String, Number, Boolean],
+        default: void 0
+      },
+      size: useSizeProp,
+      disabled: Boolean,
+      label: {
+        type: [String, Number, Boolean],
+        default: void 0
+      },
+      value: {
+        type: [String, Number, Boolean],
+        default: void 0
+      },
+      name: {
+        type: String,
+        default: void 0
+      }
+    });
+    const radioProps = buildProps({
+      ...radioPropsBase,
+      border: Boolean
+    });
+    const radioEmits = {
+      [UPDATE_MODEL_EVENT]: (val) => isString$1(val) || isNumber(val) || isBoolean(val),
+      [CHANGE_EVENT]: (val) => isString$1(val) || isNumber(val) || isBoolean(val)
+    };
+    const radioGroupKey = Symbol("radioGroupKey");
+    const useRadio = (props, emit2) => {
+      const radioRef = ref();
+      const radioGroup = inject(radioGroupKey, void 0);
+      const isGroup = computed(() => !!radioGroup);
+      const actualValue = computed(() => {
+        if (!isPropAbsent(props.value)) {
+          return props.value;
+        }
+        return props.label;
+      });
+      const modelValue = computed({
+        get() {
+          return isGroup.value ? radioGroup.modelValue : props.modelValue;
+        },
+        set(val) {
+          if (isGroup.value) {
+            radioGroup.changeEvent(val);
+          } else {
+            emit2 && emit2(UPDATE_MODEL_EVENT, val);
+          }
+          radioRef.value.checked = props.modelValue === actualValue.value;
+        }
+      });
+      const size = useFormSize(computed(() => radioGroup == null ? void 0 : radioGroup.size));
+      const disabled = useFormDisabled(computed(() => radioGroup == null ? void 0 : radioGroup.disabled));
+      const focus = ref(false);
+      const tabIndex = computed(() => {
+        return disabled.value || isGroup.value && modelValue.value !== actualValue.value ? -1 : 0;
+      });
+      useDeprecated({
+        from: "label act as value",
+        replacement: "value",
+        version: "3.0.0",
+        scope: "el-radio",
+        ref: "https://element-plus.org/en-US/component/radio.html"
+      }, computed(() => isGroup.value && isPropAbsent(props.value)));
+      return {
+        radioRef,
+        isGroup,
+        radioGroup,
+        focus,
+        size,
+        disabled,
+        tabIndex,
+        modelValue,
+        actualValue
+      };
+    };
+    const _hoisted_1$f = ["value", "name", "disabled"];
+    const __default__$h = /* @__PURE__ */ defineComponent({
+      name: "ElRadio"
+    });
+    const _sfc_main$v = /* @__PURE__ */ defineComponent({
+      ...__default__$h,
+      props: radioProps,
+      emits: radioEmits,
+      setup(__props, { emit: emit2 }) {
+        const props = __props;
+        const ns = useNamespace("radio");
+        const { radioRef, radioGroup, focus, size, disabled, modelValue, actualValue } = useRadio(props, emit2);
+        function handleChange() {
+          nextTick(() => emit2("change", modelValue.value));
+        }
+        return (_ctx, _cache) => {
+          var _a2;
+          return openBlock(), createElementBlock("label", {
+            class: normalizeClass([
+              unref(ns).b(),
+              unref(ns).is("disabled", unref(disabled)),
+              unref(ns).is("focus", unref(focus)),
+              unref(ns).is("bordered", _ctx.border),
+              unref(ns).is("checked", unref(modelValue) === unref(actualValue)),
+              unref(ns).m(unref(size))
+            ])
+          }, [
+            createBaseVNode("span", {
+              class: normalizeClass([
+                unref(ns).e("input"),
+                unref(ns).is("disabled", unref(disabled)),
+                unref(ns).is("checked", unref(modelValue) === unref(actualValue))
+              ])
+            }, [
+              withDirectives(createBaseVNode("input", {
+                ref_key: "radioRef",
+                ref: radioRef,
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(modelValue) ? modelValue.value = $event : null),
+                class: normalizeClass(unref(ns).e("original")),
+                value: unref(actualValue),
+                name: _ctx.name || ((_a2 = unref(radioGroup)) == null ? void 0 : _a2.name),
+                disabled: unref(disabled),
+                type: "radio",
+                onFocus: _cache[1] || (_cache[1] = ($event) => focus.value = true),
+                onBlur: _cache[2] || (_cache[2] = ($event) => focus.value = false),
+                onChange: handleChange,
+                onClick: _cache[3] || (_cache[3] = withModifiers(() => {
+                }, ["stop"]))
+              }, null, 42, _hoisted_1$f), [
+                [vModelRadio, unref(modelValue)]
+              ]),
+              createBaseVNode("span", {
+                class: normalizeClass(unref(ns).e("inner"))
+              }, null, 2)
+            ], 2),
+            createBaseVNode("span", {
+              class: normalizeClass(unref(ns).e("label")),
+              onKeydown: _cache[4] || (_cache[4] = withModifiers(() => {
+              }, ["stop"]))
+            }, [
+              renderSlot(_ctx.$slots, "default", {}, () => [
+                createTextVNode(toDisplayString(_ctx.label), 1)
+              ])
+            ], 34)
+          ], 2);
+        };
+      }
+    });
+    var Radio = /* @__PURE__ */ _export_sfc(_sfc_main$v, [["__file", "radio.vue"]]);
+    const radioButtonProps = buildProps({
+      ...radioPropsBase
+    });
+    const _hoisted_1$e = ["value", "name", "disabled"];
+    const __default__$g = /* @__PURE__ */ defineComponent({
+      name: "ElRadioButton"
+    });
+    const _sfc_main$u = /* @__PURE__ */ defineComponent({
+      ...__default__$g,
+      props: radioButtonProps,
+      setup(__props) {
+        const props = __props;
+        const ns = useNamespace("radio");
+        const { radioRef, focus, size, disabled, modelValue, radioGroup, actualValue } = useRadio(props);
+        const activeStyle = computed(() => {
+          return {
+            backgroundColor: (radioGroup == null ? void 0 : radioGroup.fill) || "",
+            borderColor: (radioGroup == null ? void 0 : radioGroup.fill) || "",
+            boxShadow: (radioGroup == null ? void 0 : radioGroup.fill) ? `-1px 0 0 0 ${radioGroup.fill}` : "",
+            color: (radioGroup == null ? void 0 : radioGroup.textColor) || ""
+          };
+        });
+        return (_ctx, _cache) => {
+          var _a2;
+          return openBlock(), createElementBlock("label", {
+            class: normalizeClass([
+              unref(ns).b("button"),
+              unref(ns).is("active", unref(modelValue) === unref(actualValue)),
+              unref(ns).is("disabled", unref(disabled)),
+              unref(ns).is("focus", unref(focus)),
+              unref(ns).bm("button", unref(size))
+            ])
+          }, [
+            withDirectives(createBaseVNode("input", {
+              ref_key: "radioRef",
+              ref: radioRef,
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => isRef(modelValue) ? modelValue.value = $event : null),
+              class: normalizeClass(unref(ns).be("button", "original-radio")),
+              value: unref(actualValue),
+              type: "radio",
+              name: _ctx.name || ((_a2 = unref(radioGroup)) == null ? void 0 : _a2.name),
+              disabled: unref(disabled),
+              onFocus: _cache[1] || (_cache[1] = ($event) => focus.value = true),
+              onBlur: _cache[2] || (_cache[2] = ($event) => focus.value = false),
+              onClick: _cache[3] || (_cache[3] = withModifiers(() => {
+              }, ["stop"]))
+            }, null, 42, _hoisted_1$e), [
+              [vModelRadio, unref(modelValue)]
+            ]),
+            createBaseVNode("span", {
+              class: normalizeClass(unref(ns).be("button", "inner")),
+              style: normalizeStyle(unref(modelValue) === unref(actualValue) ? unref(activeStyle) : {}),
+              onKeydown: _cache[4] || (_cache[4] = withModifiers(() => {
+              }, ["stop"]))
+            }, [
+              renderSlot(_ctx.$slots, "default", {}, () => [
+                createTextVNode(toDisplayString(_ctx.label), 1)
+              ])
+            ], 38)
+          ], 2);
+        };
+      }
+    });
+    var RadioButton = /* @__PURE__ */ _export_sfc(_sfc_main$u, [["__file", "radio-button.vue"]]);
+    const radioGroupProps = buildProps({
+      id: {
+        type: String,
+        default: void 0
+      },
+      size: useSizeProp,
+      disabled: Boolean,
+      modelValue: {
+        type: [String, Number, Boolean],
+        default: void 0
+      },
+      fill: {
+        type: String,
+        default: ""
+      },
+      label: {
+        type: String,
+        default: void 0
+      },
+      textColor: {
+        type: String,
+        default: ""
+      },
+      name: {
+        type: String,
+        default: void 0
+      },
+      validateEvent: {
+        type: Boolean,
+        default: true
+      },
+      ...useAriaProps(["ariaLabel"])
+    });
+    const radioGroupEmits = radioEmits;
+    const _hoisted_1$d = ["id", "aria-label", "aria-labelledby"];
+    const __default__$f = /* @__PURE__ */ defineComponent({
+      name: "ElRadioGroup"
+    });
+    const _sfc_main$t = /* @__PURE__ */ defineComponent({
+      ...__default__$f,
+      props: radioGroupProps,
+      emits: radioGroupEmits,
+      setup(__props, { emit: emit2 }) {
+        const props = __props;
+        const ns = useNamespace("radio");
+        const radioId = useId();
+        const radioGroupRef = ref();
+        const { formItem } = useFormItem();
+        const { inputId: groupId, isLabeledByFormItem } = useFormItemInputId(props, {
+          formItemContext: formItem
+        });
+        const changeEvent = (value) => {
+          emit2(UPDATE_MODEL_EVENT, value);
+          nextTick(() => emit2("change", value));
+        };
+        onMounted(() => {
+          const radios = radioGroupRef.value.querySelectorAll("[type=radio]");
+          const firstLabel = radios[0];
+          if (!Array.from(radios).some((radio) => radio.checked) && firstLabel) {
+            firstLabel.tabIndex = 0;
+          }
+        });
+        const name = computed(() => {
+          return props.name || radioId.value;
+        });
+        provide(radioGroupKey, reactive({
+          ...toRefs(props),
+          changeEvent,
+          name
+        }));
+        watch(() => props.modelValue, () => {
+          if (props.validateEvent) {
+            formItem == null ? void 0 : formItem.validate("change").catch((err) => debugWarn());
+          }
+        });
+        useDeprecated({
+          from: "label",
+          replacement: "aria-label",
+          version: "2.8.0",
+          scope: "el-radio-group",
+          ref: "https://element-plus.org/en-US/component/radio.html"
+        }, computed(() => !!props.label));
+        return (_ctx, _cache) => {
+          return openBlock(), createElementBlock("div", {
+            id: unref(groupId),
+            ref_key: "radioGroupRef",
+            ref: radioGroupRef,
+            class: normalizeClass(unref(ns).b("group")),
+            role: "radiogroup",
+            "aria-label": !unref(isLabeledByFormItem) ? _ctx.label || _ctx.ariaLabel || "radio-group" : void 0,
+            "aria-labelledby": unref(isLabeledByFormItem) ? unref(formItem).labelId : void 0
+          }, [
+            renderSlot(_ctx.$slots, "default")
+          ], 10, _hoisted_1$d);
+        };
+      }
+    });
+    var RadioGroup = /* @__PURE__ */ _export_sfc(_sfc_main$t, [["__file", "radio-group.vue"]]);
+    const ElRadio = withInstall(Radio, {
+      RadioButton,
+      RadioGroup
+    });
+    const ElRadioGroup = withNoopInstall(RadioGroup);
+    withNoopInstall(RadioButton);
     const tagProps = buildProps({
       type: {
         type: String,
@@ -19183,11 +20683,11 @@ var require_index_001 = __commonJS({
       close: (evt) => evt instanceof MouseEvent,
       click: (evt) => evt instanceof MouseEvent
     };
-    const __default__$c = /* @__PURE__ */ defineComponent({
+    const __default__$e = /* @__PURE__ */ defineComponent({
       name: "ElTag"
     });
-    const _sfc_main$m = /* @__PURE__ */ defineComponent({
-      ...__default__$c,
+    const _sfc_main$s = /* @__PURE__ */ defineComponent({
+      ...__default__$e,
       props: tagProps,
       emits: tagEmits,
       setup(__props, { emit: emit2 }) {
@@ -19267,7 +20767,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Tag = /* @__PURE__ */ _export_sfc$1(_sfc_main$m, [["__file", "tag.vue"]]);
+    var Tag = /* @__PURE__ */ _export_sfc(_sfc_main$s, [["__file", "tag.vue"]]);
     const ElTag = withInstall(Tag);
     const rowContextKey = Symbol("rowContextKey");
     const RowJustify = [
@@ -19298,11 +20798,11 @@ var require_index_001 = __commonJS({
         values: RowAlign
       }
     });
-    const __default__$b = /* @__PURE__ */ defineComponent({
+    const __default__$d = /* @__PURE__ */ defineComponent({
       name: "ElRow"
     });
-    const _sfc_main$l = /* @__PURE__ */ defineComponent({
-      ...__default__$b,
+    const _sfc_main$r = /* @__PURE__ */ defineComponent({
+      ...__default__$d,
       props: rowProps,
       setup(__props) {
         const props = __props;
@@ -19337,7 +20837,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Row = /* @__PURE__ */ _export_sfc$1(_sfc_main$l, [["__file", "row.vue"]]);
+    var Row = /* @__PURE__ */ _export_sfc(_sfc_main$r, [["__file", "row.vue"]]);
     const ElRow = withInstall(Row);
     const colProps = buildProps({
       tag: {
@@ -19381,11 +20881,11 @@ var require_index_001 = __commonJS({
         default: () => mutable({})
       }
     });
-    const __default__$a = /* @__PURE__ */ defineComponent({
+    const __default__$c = /* @__PURE__ */ defineComponent({
       name: "ElCol"
     });
-    const _sfc_main$k = /* @__PURE__ */ defineComponent({
-      ...__default__$a,
+    const _sfc_main$q = /* @__PURE__ */ defineComponent({
+      ...__default__$c,
       props: colProps,
       setup(__props) {
         const props = __props;
@@ -19438,13 +20938,13 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Col = /* @__PURE__ */ _export_sfc$1(_sfc_main$k, [["__file", "col.vue"]]);
+    var Col = /* @__PURE__ */ _export_sfc(_sfc_main$q, [["__file", "col.vue"]]);
     const ElCol = withInstall(Col);
-    const __default__$9 = /* @__PURE__ */ defineComponent({
+    const __default__$b = /* @__PURE__ */ defineComponent({
       name: "ElContainer"
     });
-    const _sfc_main$j = /* @__PURE__ */ defineComponent({
-      ...__default__$9,
+    const _sfc_main$p = /* @__PURE__ */ defineComponent({
+      ...__default__$b,
       props: {
         direction: {
           type: String
@@ -19479,12 +20979,12 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Container = /* @__PURE__ */ _export_sfc$1(_sfc_main$j, [["__file", "container.vue"]]);
-    const __default__$8 = /* @__PURE__ */ defineComponent({
+    var Container = /* @__PURE__ */ _export_sfc(_sfc_main$p, [["__file", "container.vue"]]);
+    const __default__$a = /* @__PURE__ */ defineComponent({
       name: "ElAside"
     });
-    const _sfc_main$i = /* @__PURE__ */ defineComponent({
-      ...__default__$8,
+    const _sfc_main$o = /* @__PURE__ */ defineComponent({
+      ...__default__$a,
       props: {
         width: {
           type: String,
@@ -19505,12 +21005,12 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Aside = /* @__PURE__ */ _export_sfc$1(_sfc_main$i, [["__file", "aside.vue"]]);
-    const __default__$7 = /* @__PURE__ */ defineComponent({
+    var Aside = /* @__PURE__ */ _export_sfc(_sfc_main$o, [["__file", "aside.vue"]]);
+    const __default__$9 = /* @__PURE__ */ defineComponent({
       name: "ElFooter"
     });
-    const _sfc_main$h = /* @__PURE__ */ defineComponent({
-      ...__default__$7,
+    const _sfc_main$n = /* @__PURE__ */ defineComponent({
+      ...__default__$9,
       props: {
         height: {
           type: String,
@@ -19531,12 +21031,12 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Footer = /* @__PURE__ */ _export_sfc$1(_sfc_main$h, [["__file", "footer.vue"]]);
-    const __default__$6 = /* @__PURE__ */ defineComponent({
+    var Footer = /* @__PURE__ */ _export_sfc(_sfc_main$n, [["__file", "footer.vue"]]);
+    const __default__$8 = /* @__PURE__ */ defineComponent({
       name: "ElHeader"
     });
-    const _sfc_main$g = /* @__PURE__ */ defineComponent({
-      ...__default__$6,
+    const _sfc_main$m = /* @__PURE__ */ defineComponent({
+      ...__default__$8,
       props: {
         height: {
           type: String,
@@ -19561,12 +21061,12 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Header = /* @__PURE__ */ _export_sfc$1(_sfc_main$g, [["__file", "header.vue"]]);
-    const __default__$5 = /* @__PURE__ */ defineComponent({
+    var Header = /* @__PURE__ */ _export_sfc(_sfc_main$m, [["__file", "header.vue"]]);
+    const __default__$7 = /* @__PURE__ */ defineComponent({
       name: "ElMain"
     });
-    const _sfc_main$f = /* @__PURE__ */ defineComponent({
-      ...__default__$5,
+    const _sfc_main$l = /* @__PURE__ */ defineComponent({
+      ...__default__$7,
       setup(__props) {
         const ns = useNamespace("main");
         return (_ctx, _cache) => {
@@ -19578,7 +21078,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var Main = /* @__PURE__ */ _export_sfc$1(_sfc_main$f, [["__file", "main.vue"]]);
+    var Main = /* @__PURE__ */ _export_sfc(_sfc_main$l, [["__file", "main.vue"]]);
     const ElContainer = withInstall(Container, {
       Aside,
       Footer,
@@ -19589,6 +21089,551 @@ var require_index_001 = __commonJS({
     const ElFooter = withNoopInstall(Footer);
     const ElHeader = withNoopInstall(Header);
     const ElMain = withNoopInstall(Main);
+    const overlayProps = buildProps({
+      mask: {
+        type: Boolean,
+        default: true
+      },
+      customMaskEvent: {
+        type: Boolean,
+        default: false
+      },
+      overlayClass: {
+        type: definePropType([
+          String,
+          Array,
+          Object
+        ])
+      },
+      zIndex: {
+        type: definePropType([String, Number])
+      }
+    });
+    const overlayEmits = {
+      click: (evt) => evt instanceof MouseEvent
+    };
+    const BLOCK = "overlay";
+    var Overlay = /* @__PURE__ */ defineComponent({
+      name: "ElOverlay",
+      props: overlayProps,
+      emits: overlayEmits,
+      setup(props, { slots, emit: emit2 }) {
+        const ns = useNamespace(BLOCK);
+        const onMaskClick = (e) => {
+          emit2("click", e);
+        };
+        const { onClick, onMousedown, onMouseup } = useSameTarget(props.customMaskEvent ? void 0 : onMaskClick);
+        return () => {
+          return props.mask ? createVNode("div", {
+            class: [ns.b(), props.overlayClass],
+            style: {
+              zIndex: props.zIndex
+            },
+            onClick,
+            onMousedown,
+            onMouseup
+          }, [renderSlot(slots, "default")], PatchFlags.STYLE | PatchFlags.CLASS | PatchFlags.PROPS, ["onClick", "onMouseup", "onMousedown"]) : h("div", {
+            class: props.overlayClass,
+            style: {
+              zIndex: props.zIndex,
+              position: "fixed",
+              top: "0px",
+              right: "0px",
+              bottom: "0px",
+              left: "0px"
+            }
+          }, [renderSlot(slots, "default")]);
+        };
+      }
+    });
+    const ElOverlay = Overlay;
+    const dialogInjectionKey = Symbol("dialogInjectionKey");
+    const dialogContentProps = buildProps({
+      center: Boolean,
+      alignCenter: Boolean,
+      closeIcon: {
+        type: iconPropType
+      },
+      draggable: Boolean,
+      overflow: Boolean,
+      fullscreen: Boolean,
+      showClose: {
+        type: Boolean,
+        default: true
+      },
+      title: {
+        type: String,
+        default: ""
+      },
+      ariaLevel: {
+        type: String,
+        default: "2"
+      }
+    });
+    const dialogContentEmits = {
+      close: () => true
+    };
+    const _hoisted_1$c = ["aria-level"];
+    const _hoisted_2$5 = ["aria-label"];
+    const _hoisted_3$3 = ["id"];
+    const __default__$6 = /* @__PURE__ */ defineComponent({ name: "ElDialogContent" });
+    const _sfc_main$k = /* @__PURE__ */ defineComponent({
+      ...__default__$6,
+      props: dialogContentProps,
+      emits: dialogContentEmits,
+      setup(__props) {
+        const props = __props;
+        const { t } = useLocale();
+        const { Close } = CloseComponents;
+        const { dialogRef, headerRef, bodyId, ns, style } = inject(dialogInjectionKey);
+        const { focusTrapRef } = inject(FOCUS_TRAP_INJECTION_KEY);
+        const dialogKls = computed(() => [
+          ns.b(),
+          ns.is("fullscreen", props.fullscreen),
+          ns.is("draggable", props.draggable),
+          ns.is("align-center", props.alignCenter),
+          { [ns.m("center")]: props.center }
+        ]);
+        const composedDialogRef = composeRefs(focusTrapRef, dialogRef);
+        const draggable = computed(() => props.draggable);
+        const overflow = computed(() => props.overflow);
+        useDraggable(dialogRef, headerRef, draggable, overflow);
+        return (_ctx, _cache) => {
+          return openBlock(), createElementBlock("div", {
+            ref: unref(composedDialogRef),
+            class: normalizeClass(unref(dialogKls)),
+            style: normalizeStyle(unref(style)),
+            tabindex: "-1"
+          }, [
+            createBaseVNode("header", {
+              ref_key: "headerRef",
+              ref: headerRef,
+              class: normalizeClass([unref(ns).e("header"), { "show-close": _ctx.showClose }])
+            }, [
+              renderSlot(_ctx.$slots, "header", {}, () => [
+                createBaseVNode("span", {
+                  role: "heading",
+                  "aria-level": _ctx.ariaLevel,
+                  class: normalizeClass(unref(ns).e("title"))
+                }, toDisplayString(_ctx.title), 11, _hoisted_1$c)
+              ]),
+              _ctx.showClose ? (openBlock(), createElementBlock("button", {
+                key: 0,
+                "aria-label": unref(t)("el.dialog.close"),
+                class: normalizeClass(unref(ns).e("headerbtn")),
+                type: "button",
+                onClick: _cache[0] || (_cache[0] = ($event) => _ctx.$emit("close"))
+              }, [
+                createVNode(unref(ElIcon), {
+                  class: normalizeClass(unref(ns).e("close"))
+                }, {
+                  default: withCtx(() => [
+                    (openBlock(), createBlock(resolveDynamicComponent(_ctx.closeIcon || unref(Close))))
+                  ]),
+                  _: 1
+                }, 8, ["class"])
+              ], 10, _hoisted_2$5)) : createCommentVNode("v-if", true)
+            ], 2),
+            createBaseVNode("div", {
+              id: unref(bodyId),
+              class: normalizeClass(unref(ns).e("body"))
+            }, [
+              renderSlot(_ctx.$slots, "default")
+            ], 10, _hoisted_3$3),
+            _ctx.$slots.footer ? (openBlock(), createElementBlock("footer", {
+              key: 0,
+              class: normalizeClass(unref(ns).e("footer"))
+            }, [
+              renderSlot(_ctx.$slots, "footer")
+            ], 2)) : createCommentVNode("v-if", true)
+          ], 6);
+        };
+      }
+    });
+    var ElDialogContent = /* @__PURE__ */ _export_sfc(_sfc_main$k, [["__file", "dialog-content.vue"]]);
+    const dialogProps = buildProps({
+      ...dialogContentProps,
+      appendToBody: Boolean,
+      appendTo: {
+        type: definePropType(String),
+        default: "body"
+      },
+      beforeClose: {
+        type: definePropType(Function)
+      },
+      destroyOnClose: Boolean,
+      closeOnClickModal: {
+        type: Boolean,
+        default: true
+      },
+      closeOnPressEscape: {
+        type: Boolean,
+        default: true
+      },
+      lockScroll: {
+        type: Boolean,
+        default: true
+      },
+      modal: {
+        type: Boolean,
+        default: true
+      },
+      openDelay: {
+        type: Number,
+        default: 0
+      },
+      closeDelay: {
+        type: Number,
+        default: 0
+      },
+      top: {
+        type: String
+      },
+      modelValue: Boolean,
+      modalClass: String,
+      width: {
+        type: [String, Number]
+      },
+      zIndex: {
+        type: Number
+      },
+      trapFocus: {
+        type: Boolean,
+        default: false
+      },
+      headerAriaLevel: {
+        type: String,
+        default: "2"
+      }
+    });
+    const dialogEmits = {
+      open: () => true,
+      opened: () => true,
+      close: () => true,
+      closed: () => true,
+      [UPDATE_MODEL_EVENT]: (value) => isBoolean(value),
+      openAutoFocus: () => true,
+      closeAutoFocus: () => true
+    };
+    const useDialog = (props, targetRef) => {
+      var _a2;
+      const instance = getCurrentInstance();
+      const emit2 = instance.emit;
+      const { nextZIndex } = useZIndex();
+      let lastPosition = "";
+      const titleId = useId();
+      const bodyId = useId();
+      const visible = ref(false);
+      const closed = ref(false);
+      const rendered = ref(false);
+      const zIndex2 = ref((_a2 = props.zIndex) != null ? _a2 : nextZIndex());
+      let openTimer = void 0;
+      let closeTimer = void 0;
+      const namespace = useGlobalConfig("namespace", defaultNamespace);
+      const style = computed(() => {
+        const style2 = {};
+        const varPrefix = `--${namespace.value}-dialog`;
+        if (!props.fullscreen) {
+          if (props.top) {
+            style2[`${varPrefix}-margin-top`] = props.top;
+          }
+          if (props.width) {
+            style2[`${varPrefix}-width`] = addUnit(props.width);
+          }
+        }
+        return style2;
+      });
+      const overlayDialogStyle = computed(() => {
+        if (props.alignCenter) {
+          return { display: "flex" };
+        }
+        return {};
+      });
+      function afterEnter() {
+        emit2("opened");
+      }
+      function afterLeave() {
+        emit2("closed");
+        emit2(UPDATE_MODEL_EVENT, false);
+        if (props.destroyOnClose) {
+          rendered.value = false;
+        }
+      }
+      function beforeLeave() {
+        emit2("close");
+      }
+      function open() {
+        closeTimer == null ? void 0 : closeTimer();
+        openTimer == null ? void 0 : openTimer();
+        if (props.openDelay && props.openDelay > 0) {
+          ({ stop: openTimer } = useTimeoutFn(() => doOpen(), props.openDelay));
+        } else {
+          doOpen();
+        }
+      }
+      function close() {
+        openTimer == null ? void 0 : openTimer();
+        closeTimer == null ? void 0 : closeTimer();
+        if (props.closeDelay && props.closeDelay > 0) {
+          ({ stop: closeTimer } = useTimeoutFn(() => doClose(), props.closeDelay));
+        } else {
+          doClose();
+        }
+      }
+      function handleClose() {
+        function hide(shouldCancel) {
+          if (shouldCancel)
+            return;
+          closed.value = true;
+          visible.value = false;
+        }
+        if (props.beforeClose) {
+          props.beforeClose(hide);
+        } else {
+          close();
+        }
+      }
+      function onModalClick() {
+        if (props.closeOnClickModal) {
+          handleClose();
+        }
+      }
+      function doOpen() {
+        if (!isClient)
+          return;
+        visible.value = true;
+      }
+      function doClose() {
+        visible.value = false;
+      }
+      function onOpenAutoFocus() {
+        emit2("openAutoFocus");
+      }
+      function onCloseAutoFocus() {
+        emit2("closeAutoFocus");
+      }
+      function onFocusoutPrevented(event) {
+        var _a22;
+        if (((_a22 = event.detail) == null ? void 0 : _a22.focusReason) === "pointer") {
+          event.preventDefault();
+        }
+      }
+      if (props.lockScroll) {
+        useLockscreen(visible);
+      }
+      function onCloseRequested() {
+        if (props.closeOnPressEscape) {
+          handleClose();
+        }
+      }
+      watch(() => props.modelValue, (val) => {
+        if (val) {
+          closed.value = false;
+          open();
+          rendered.value = true;
+          zIndex2.value = isUndefined$1(props.zIndex) ? nextZIndex() : zIndex2.value++;
+          nextTick(() => {
+            emit2("open");
+            if (targetRef.value) {
+              targetRef.value.scrollTop = 0;
+            }
+          });
+        } else {
+          if (visible.value) {
+            close();
+          }
+        }
+      });
+      watch(() => props.fullscreen, (val) => {
+        if (!targetRef.value)
+          return;
+        if (val) {
+          lastPosition = targetRef.value.style.transform;
+          targetRef.value.style.transform = "";
+        } else {
+          targetRef.value.style.transform = lastPosition;
+        }
+      });
+      onMounted(() => {
+        if (props.modelValue) {
+          visible.value = true;
+          rendered.value = true;
+          open();
+        }
+      });
+      return {
+        afterEnter,
+        afterLeave,
+        beforeLeave,
+        handleClose,
+        onModalClick,
+        close,
+        doClose,
+        onOpenAutoFocus,
+        onCloseAutoFocus,
+        onCloseRequested,
+        onFocusoutPrevented,
+        titleId,
+        bodyId,
+        closed,
+        style,
+        overlayDialogStyle,
+        rendered,
+        visible,
+        zIndex: zIndex2
+      };
+    };
+    const _hoisted_1$b = ["aria-label", "aria-labelledby", "aria-describedby"];
+    const __default__$5 = /* @__PURE__ */ defineComponent({
+      name: "ElDialog",
+      inheritAttrs: false
+    });
+    const _sfc_main$j = /* @__PURE__ */ defineComponent({
+      ...__default__$5,
+      props: dialogProps,
+      emits: dialogEmits,
+      setup(__props, { expose }) {
+        const props = __props;
+        const slots = useSlots();
+        useDeprecated({
+          scope: "el-dialog",
+          from: "the title slot",
+          replacement: "the header slot",
+          version: "3.0.0",
+          ref: "https://element-plus.org/en-US/component/dialog.html#slots"
+        }, computed(() => !!slots.title));
+        const ns = useNamespace("dialog");
+        const dialogRef = ref();
+        const headerRef = ref();
+        const dialogContentRef = ref();
+        const {
+          visible,
+          titleId,
+          bodyId,
+          style,
+          overlayDialogStyle,
+          rendered,
+          zIndex: zIndex2,
+          afterEnter,
+          afterLeave,
+          beforeLeave,
+          handleClose,
+          onModalClick,
+          onOpenAutoFocus,
+          onCloseAutoFocus,
+          onCloseRequested,
+          onFocusoutPrevented
+        } = useDialog(props, dialogRef);
+        provide(dialogInjectionKey, {
+          dialogRef,
+          headerRef,
+          bodyId,
+          ns,
+          rendered,
+          style
+        });
+        const overlayEvent = useSameTarget(onModalClick);
+        const draggable = computed(() => props.draggable && !props.fullscreen);
+        expose({
+          visible,
+          dialogContentRef
+        });
+        return (_ctx, _cache) => {
+          return openBlock(), createBlock(Teleport, {
+            to: _ctx.appendTo,
+            disabled: _ctx.appendTo !== "body" ? false : !_ctx.appendToBody
+          }, [
+            createVNode(Transition, {
+              name: "dialog-fade",
+              onAfterEnter: unref(afterEnter),
+              onAfterLeave: unref(afterLeave),
+              onBeforeLeave: unref(beforeLeave),
+              persisted: ""
+            }, {
+              default: withCtx(() => [
+                withDirectives(createVNode(unref(ElOverlay), {
+                  "custom-mask-event": "",
+                  mask: _ctx.modal,
+                  "overlay-class": _ctx.modalClass,
+                  "z-index": unref(zIndex2)
+                }, {
+                  default: withCtx(() => [
+                    createBaseVNode("div", {
+                      role: "dialog",
+                      "aria-modal": "true",
+                      "aria-label": _ctx.title || void 0,
+                      "aria-labelledby": !_ctx.title ? unref(titleId) : void 0,
+                      "aria-describedby": unref(bodyId),
+                      class: normalizeClass(`${unref(ns).namespace.value}-overlay-dialog`),
+                      style: normalizeStyle(unref(overlayDialogStyle)),
+                      onClick: _cache[0] || (_cache[0] = (...args) => unref(overlayEvent).onClick && unref(overlayEvent).onClick(...args)),
+                      onMousedown: _cache[1] || (_cache[1] = (...args) => unref(overlayEvent).onMousedown && unref(overlayEvent).onMousedown(...args)),
+                      onMouseup: _cache[2] || (_cache[2] = (...args) => unref(overlayEvent).onMouseup && unref(overlayEvent).onMouseup(...args))
+                    }, [
+                      createVNode(unref(ElFocusTrap), {
+                        loop: "",
+                        trapped: unref(visible),
+                        "focus-start-el": "container",
+                        onFocusAfterTrapped: unref(onOpenAutoFocus),
+                        onFocusAfterReleased: unref(onCloseAutoFocus),
+                        onFocusoutPrevented: unref(onFocusoutPrevented),
+                        onReleaseRequested: unref(onCloseRequested)
+                      }, {
+                        default: withCtx(() => [
+                          unref(rendered) ? (openBlock(), createBlock(ElDialogContent, mergeProps({
+                            key: 0,
+                            ref_key: "dialogContentRef",
+                            ref: dialogContentRef
+                          }, _ctx.$attrs, {
+                            center: _ctx.center,
+                            "align-center": _ctx.alignCenter,
+                            "close-icon": _ctx.closeIcon,
+                            draggable: unref(draggable),
+                            overflow: _ctx.overflow,
+                            fullscreen: _ctx.fullscreen,
+                            "show-close": _ctx.showClose,
+                            title: _ctx.title,
+                            "aria-level": _ctx.headerAriaLevel,
+                            onClose: unref(handleClose)
+                          }), createSlots({
+                            header: withCtx(() => [
+                              !_ctx.$slots.title ? renderSlot(_ctx.$slots, "header", {
+                                key: 0,
+                                close: unref(handleClose),
+                                titleId: unref(titleId),
+                                titleClass: unref(ns).e("title")
+                              }) : renderSlot(_ctx.$slots, "title", { key: 1 })
+                            ]),
+                            default: withCtx(() => [
+                              renderSlot(_ctx.$slots, "default")
+                            ]),
+                            _: 2
+                          }, [
+                            _ctx.$slots.footer ? {
+                              name: "footer",
+                              fn: withCtx(() => [
+                                renderSlot(_ctx.$slots, "footer")
+                              ])
+                            } : void 0
+                          ]), 1040, ["center", "align-center", "close-icon", "draggable", "overflow", "fullscreen", "show-close", "title", "aria-level", "onClose"])) : createCommentVNode("v-if", true)
+                        ]),
+                        _: 3
+                      }, 8, ["trapped", "onFocusAfterTrapped", "onFocusAfterReleased", "onFocusoutPrevented", "onReleaseRequested"])
+                    ], 46, _hoisted_1$b)
+                  ]),
+                  _: 3
+                }, 8, ["mask", "overlay-class", "z-index"]), [
+                  [vShow, unref(visible)]
+                ])
+              ]),
+              _: 3
+            }, 8, ["onAfterEnter", "onAfterLeave", "onBeforeLeave"])
+          ], 8, ["to", "disabled"]);
+        };
+      }
+    });
+    var Dialog = /* @__PURE__ */ _export_sfc(_sfc_main$j, [["__file", "dialog.vue"]]);
+    const ElDialog = withInstall(Dialog);
     const inputNumberProps = buildProps({
       id: {
         type: String,
@@ -19645,12 +21690,12 @@ var require_index_001 = __commonJS({
       [INPUT_EVENT]: (val) => isNumber(val) || isNil(val),
       [UPDATE_MODEL_EVENT]: (val) => isNumber(val) || isNil(val)
     };
-    const _hoisted_1$8 = ["aria-label", "onKeydown"];
-    const _hoisted_2$3 = ["aria-label", "onKeydown"];
+    const _hoisted_1$a = ["aria-label", "onKeydown"];
+    const _hoisted_2$4 = ["aria-label", "onKeydown"];
     const __default__$4 = /* @__PURE__ */ defineComponent({
       name: "ElInputNumber"
     });
-    const _sfc_main$e = /* @__PURE__ */ defineComponent({
+    const _sfc_main$i = /* @__PURE__ */ defineComponent({
       ...__default__$4,
       props: inputNumberProps,
       emits: inputNumberEmits,
@@ -19913,7 +21958,7 @@ var require_index_001 = __commonJS({
                   _: 1
                 })
               ])
-            ], 42, _hoisted_1$8)), [
+            ], 42, _hoisted_1$a)), [
               [unref(vRepeatClick), decrease]
             ]) : createCommentVNode("v-if", true),
             _ctx.controls ? withDirectives((openBlock(), createElementBlock("span", {
@@ -19931,7 +21976,7 @@ var require_index_001 = __commonJS({
                   _: 1
                 })
               ])
-            ], 42, _hoisted_2$3)), [
+            ], 42, _hoisted_2$4)), [
               [unref(vRepeatClick), increase]
             ]) : createCommentVNode("v-if", true),
             createVNode(unref(ElInput), {
@@ -19963,7 +22008,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var InputNumber = /* @__PURE__ */ _export_sfc$1(_sfc_main$e, [["__file", "input-number.vue"]]);
+    var InputNumber = /* @__PURE__ */ _export_sfc(_sfc_main$i, [["__file", "input-number.vue"]]);
     const ElInputNumber = withInstall(InputNumber);
     const selectGroupKey = Symbol("ElSelectGroup");
     const selectKey = Symbol("ElSelect");
@@ -20044,7 +22089,7 @@ var require_index_001 = __commonJS({
         updateOption
       };
     }
-    const _sfc_main$d = /* @__PURE__ */ defineComponent({
+    const _sfc_main$h = /* @__PURE__ */ defineComponent({
       name: "ElOption",
       componentName: "ElOption",
       props: {
@@ -20118,8 +22163,8 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    const _hoisted_1$7 = ["id", "aria-disabled", "aria-selected"];
-    function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
+    const _hoisted_1$9 = ["id", "aria-disabled", "aria-selected"];
+    function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
       return withDirectives((openBlock(), createElementBlock("li", {
         id: _ctx.id,
         class: normalizeClass(_ctx.containerKls),
@@ -20132,12 +22177,12 @@ var require_index_001 = __commonJS({
         renderSlot(_ctx.$slots, "default", {}, () => [
           createBaseVNode("span", null, toDisplayString(_ctx.currentLabel), 1)
         ])
-      ], 42, _hoisted_1$7)), [
+      ], 42, _hoisted_1$9)), [
         [vShow, _ctx.visible]
       ]);
     }
-    var Option = /* @__PURE__ */ _export_sfc$1(_sfc_main$d, [["render", _sfc_render$6], ["__file", "option.vue"]]);
-    const _sfc_main$c = /* @__PURE__ */ defineComponent({
+    var Option = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["render", _sfc_render$7], ["__file", "option.vue"]]);
+    const _sfc_main$g = /* @__PURE__ */ defineComponent({
       name: "ElSelectDropdown",
       componentName: "ElSelectDropdown",
       setup() {
@@ -20164,7 +22209,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
+    function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
       return openBlock(), createElementBlock("div", {
         class: normalizeClass([_ctx.ns.b("dropdown"), _ctx.ns.is("multiple", _ctx.isMultiple), _ctx.popperClass]),
         style: normalizeStyle({ [_ctx.isFitInputWidth ? "width" : "minWidth"]: _ctx.minWidth })
@@ -20184,7 +22229,7 @@ var require_index_001 = __commonJS({
         ], 2)) : createCommentVNode("v-if", true)
       ], 6);
     }
-    var ElSelectMenu = /* @__PURE__ */ _export_sfc$1(_sfc_main$c, [["render", _sfc_render$5], ["__file", "select-dropdown.vue"]]);
+    var ElSelectMenu = /* @__PURE__ */ _export_sfc(_sfc_main$g, [["render", _sfc_render$6], ["__file", "select-dropdown.vue"]]);
     function useInput(handleInput) {
       const isComposing = ref(false);
       const handleCompositionStart = () => {
@@ -20278,7 +22323,7 @@ var require_index_001 = __commonJS({
       const iconReverse = computed(() => nsSelect.is("reverse", iconComponent.value && expanded.value));
       const validateState = computed(() => (formItem == null ? void 0 : formItem.validateState) || "");
       const validateIcon = computed(() => ValidateComponentsMap[validateState.value]);
-      const debounce$1 = computed(() => props.remote ? 300 : 0);
+      const debounce$1$1 = computed(() => props.remote ? 300 : 0);
       const emptyText = computed(() => {
         if (props.loading) {
           return props.loadingText || t("el.select.loading");
@@ -20315,7 +22360,7 @@ var require_index_001 = __commonJS({
         });
         return props.filterable && props.allowCreate && states.inputValue !== "" && !hasExistingOption;
       });
-      const updateOptions = () => {
+      const updateOptions2 = () => {
         if (props.filterable && isFunction$1(props.filterMethod))
           return;
         if (props.filterable && props.remote && isFunction$1(props.remoteMethod))
@@ -20399,7 +22444,7 @@ var require_index_001 = __commonJS({
       watchEffect(() => {
         if (states.isBeforeHide)
           return;
-        updateOptions();
+        updateOptions2();
       });
       const handleQueryChange = (val) => {
         if (states.previousQuery === val) {
@@ -20508,9 +22553,9 @@ var require_index_001 = __commonJS({
           return onInputChange();
         }
       };
-      const debouncedOnInputChange = debounce(() => {
+      const debouncedOnInputChange = debounce$1(() => {
         onInputChange();
-      }, debounce$1.value);
+      }, debounce$1$1.value);
       const emitChange = (val) => {
         if (!isEqual(props.modelValue, val)) {
           emit2(CHANGE_EVENT, val);
@@ -20796,7 +22841,7 @@ var require_index_001 = __commonJS({
         validateState,
         validateIcon,
         showNewOption,
-        updateOptions,
+        updateOptions: updateOptions2,
         collapseTagSize,
         setSelected,
         selectDisabled,
@@ -20970,7 +23015,7 @@ var require_index_001 = __commonJS({
       ...useAriaProps(["ariaLabel"])
     });
     const COMPONENT_NAME$3 = "ElSelect";
-    const _sfc_main$b = /* @__PURE__ */ defineComponent({
+    const _sfc_main$f = /* @__PURE__ */ defineComponent({
       name: COMPONENT_NAME$3,
       componentName: COMPONENT_NAME$3,
       components: {
@@ -21011,10 +23056,10 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    const _hoisted_1$6 = ["id", "name", "disabled", "autocomplete", "readonly", "aria-activedescendant", "aria-controls", "aria-expanded", "aria-label"];
-    const _hoisted_2$2 = ["textContent"];
-    const _hoisted_3$1 = { key: 1 };
-    function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
+    const _hoisted_1$8 = ["id", "name", "disabled", "autocomplete", "readonly", "aria-activedescendant", "aria-controls", "aria-expanded", "aria-label"];
+    const _hoisted_2$3 = ["textContent"];
+    const _hoisted_3$2 = { key: 1 };
+    function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
       const _component_el_tag = resolveComponent("el-tag");
       const _component_el_tooltip = resolveComponent("el-tooltip");
       const _component_el_icon = resolveComponent("el-icon");
@@ -21218,7 +23263,7 @@ var require_index_001 = __commonJS({
                       onCompositionend: _cache[10] || (_cache[10] = (...args) => _ctx.handleCompositionEnd && _ctx.handleCompositionEnd(...args)),
                       onInput: _cache[11] || (_cache[11] = (...args) => _ctx.onInput && _ctx.onInput(...args)),
                       onClick: _cache[12] || (_cache[12] = withModifiers((...args) => _ctx.toggleMenu && _ctx.toggleMenu(...args), ["stop"]))
-                    }, null, 46, _hoisted_1$6), [
+                    }, null, 46, _hoisted_1$8), [
                       [vModelText, _ctx.states.inputValue]
                     ]),
                     _ctx.filterable ? (openBlock(), createElementBlock("span", {
@@ -21227,7 +23272,7 @@ var require_index_001 = __commonJS({
                       "aria-hidden": "true",
                       class: normalizeClass(_ctx.nsSelect.e("input-calculator")),
                       textContent: toDisplayString(_ctx.states.inputValue)
-                    }, null, 10, _hoisted_2$2)) : createCommentVNode("v-if", true)
+                    }, null, 10, _hoisted_2$3)) : createCommentVNode("v-if", true)
                   ], 2)) : createCommentVNode("v-if", true),
                   _ctx.shouldShowPlaceholder ? (openBlock(), createElementBlock("div", {
                     key: 2,
@@ -21243,7 +23288,7 @@ var require_index_001 = __commonJS({
                       value: _ctx.modelValue
                     }, () => [
                       createBaseVNode("span", null, toDisplayString(_ctx.currentPlaceholder), 1)
-                    ]) : (openBlock(), createElementBlock("span", _hoisted_3$1, toDisplayString(_ctx.currentPlaceholder), 1))
+                    ]) : (openBlock(), createElementBlock("span", _hoisted_3$2, toDisplayString(_ctx.currentPlaceholder), 1))
                   ], 2)) : createCommentVNode("v-if", true)
                 ], 2),
                 createBaseVNode("div", {
@@ -21352,8 +23397,8 @@ var require_index_001 = __commonJS({
         [_directive_click_outside, _ctx.handleClickOutside, _ctx.popperRef]
       ]);
     }
-    var Select = /* @__PURE__ */ _export_sfc$1(_sfc_main$b, [["render", _sfc_render$4], ["__file", "select.vue"]]);
-    const _sfc_main$a = /* @__PURE__ */ defineComponent({
+    var Select = /* @__PURE__ */ _export_sfc(_sfc_main$f, [["render", _sfc_render$5], ["__file", "select.vue"]]);
+    const _sfc_main$e = /* @__PURE__ */ defineComponent({
       name: "ElOptionGroup",
       componentName: "ElOptionGroup",
       props: {
@@ -21406,7 +23451,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
+    function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
       return withDirectives((openBlock(), createElementBlock("ul", {
         ref: "groupRef",
         class: normalizeClass(_ctx.ns.be("group", "wrap"))
@@ -21425,7 +23470,7 @@ var require_index_001 = __commonJS({
         [vShow, _ctx.visible]
       ]);
     }
-    var OptionGroup = /* @__PURE__ */ _export_sfc$1(_sfc_main$a, [["render", _sfc_render$3], ["__file", "option-group.vue"]]);
+    var OptionGroup = /* @__PURE__ */ _export_sfc(_sfc_main$e, [["render", _sfc_render$4], ["__file", "option-group.vue"]]);
     const ElSelect = withInstall(Select, {
       Option,
       OptionGroup
@@ -21704,10 +23749,10 @@ var require_index_001 = __commonJS({
       const formatValue = computed(() => {
         return enableFormat.value && formatTooltip.value(props.modelValue) || props.modelValue;
       });
-      const displayTooltip = debounce(() => {
+      const displayTooltip = debounce$1(() => {
         showTooltip.value && (tooltipVisible.value = true);
       }, 50);
-      const hideTooltip = debounce(() => {
+      const hideTooltip = debounce$1(() => {
         showTooltip.value && (tooltipVisible.value = false);
       }, 50);
       return {
@@ -22029,11 +24074,11 @@ var require_index_001 = __commonJS({
     const sliderButtonEmits = {
       [UPDATE_MODEL_EVENT]: (value) => isNumber(value)
     };
-    const _hoisted_1$5 = ["tabindex"];
+    const _hoisted_1$7 = ["tabindex"];
     const __default__$3 = /* @__PURE__ */ defineComponent({
       name: "ElSliderButton"
     });
-    const _sfc_main$9 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$d = /* @__PURE__ */ defineComponent({
       ...__default__$3,
       props: sliderButtonProps,
       emits: sliderButtonEmits,
@@ -22110,11 +24155,11 @@ var require_index_001 = __commonJS({
               ]),
               _: 1
             }, 8, ["visible", "placement", "popper-class", "disabled"])
-          ], 46, _hoisted_1$5);
+          ], 46, _hoisted_1$7);
         };
       }
     });
-    var SliderButton = /* @__PURE__ */ _export_sfc$1(_sfc_main$9, [["__file", "button.vue"]]);
+    var SliderButton = /* @__PURE__ */ _export_sfc(_sfc_main$d, [["__file", "button.vue"]]);
     const sliderMarkerProps = buildProps({
       mark: {
         type: definePropType([String, Object]),
@@ -22136,12 +24181,12 @@ var require_index_001 = __commonJS({
         }, label.value);
       }
     });
-    const _hoisted_1$4 = ["id", "role", "aria-label", "aria-labelledby"];
-    const _hoisted_2$1 = { key: 1 };
+    const _hoisted_1$6 = ["id", "role", "aria-label", "aria-labelledby"];
+    const _hoisted_2$2 = { key: 1 };
     const __default__$2 = /* @__PURE__ */ defineComponent({
       name: "ElSlider"
     });
-    const _sfc_main$8 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$c = /* @__PURE__ */ defineComponent({
       ...__default__$2,
       props: sliderProps,
       emits: sliderEmits,
@@ -22307,7 +24352,7 @@ var require_index_001 = __commonJS({
                 "aria-disabled": unref(sliderDisabled),
                 "onUpdate:modelValue": unref(setSecondValue)
               }, null, 8, ["model-value", "vertical", "tooltip-class", "placement", "aria-label", "aria-valuemin", "aria-valuemax", "aria-valuenow", "aria-valuetext", "aria-orientation", "aria-disabled", "onUpdate:modelValue"])) : createCommentVNode("v-if", true),
-              _ctx.showStops ? (openBlock(), createElementBlock("div", _hoisted_2$1, [
+              _ctx.showStops ? (openBlock(), createElementBlock("div", _hoisted_2$2, [
                 (openBlock(true), createElementBlock(Fragment, null, renderList(unref(stops), (item, key) => {
                   return openBlock(), createElementBlock("div", {
                     key,
@@ -22354,11 +24399,11 @@ var require_index_001 = __commonJS({
               "onUpdate:modelValue": unref(setFirstValue),
               onChange: unref(emitChange)
             }, null, 8, ["model-value", "class", "step", "disabled", "controls", "min", "max", "debounce", "size", "onUpdate:modelValue", "onChange"])) : createCommentVNode("v-if", true)
-          ], 42, _hoisted_1$4);
+          ], 42, _hoisted_1$6);
         };
       }
     });
-    var Slider = /* @__PURE__ */ _export_sfc$1(_sfc_main$8, [["__file", "slider.vue"]]);
+    var Slider = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["__file", "slider.vue"]]);
     const ElSlider = withInstall(Slider);
     const tabsRootContextKey = Symbol("tabsRootContextKey");
     const tabBarProps = buildProps({
@@ -22371,7 +24416,7 @@ var require_index_001 = __commonJS({
     const __default__$1 = /* @__PURE__ */ defineComponent({
       name: COMPONENT_NAME$2
     });
-    const _sfc_main$7 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$b = /* @__PURE__ */ defineComponent({
       ...__default__$1,
       props: tabBarProps,
       setup(__props, { expose }) {
@@ -22433,7 +24478,7 @@ var require_index_001 = __commonJS({
         };
       }
     });
-    var TabBar = /* @__PURE__ */ _export_sfc$1(_sfc_main$7, [["__file", "tab-bar.vue"]]);
+    var TabBar = /* @__PURE__ */ _export_sfc(_sfc_main$b, [["__file", "tab-bar.vue"]]);
     const tabNavProps = buildProps({
       panes: {
         type: definePropType(Array),
@@ -22842,12 +24887,12 @@ var require_index_001 = __commonJS({
       disabled: Boolean,
       lazy: Boolean
     });
-    const _hoisted_1$3 = ["id", "aria-hidden", "aria-labelledby"];
+    const _hoisted_1$5 = ["id", "aria-hidden", "aria-labelledby"];
     const COMPONENT_NAME = "ElTabPane";
     const __default__ = /* @__PURE__ */ defineComponent({
       name: COMPONENT_NAME
     });
-    const _sfc_main$6 = /* @__PURE__ */ defineComponent({
+    const _sfc_main$a = /* @__PURE__ */ defineComponent({
       ...__default__,
       props: tabPaneProps,
       setup(__props) {
@@ -22899,17 +24944,285 @@ var require_index_001 = __commonJS({
             "aria-labelledby": `tab-${unref(paneName)}`
           }, [
             renderSlot(_ctx.$slots, "default")
-          ], 10, _hoisted_1$3)), [
+          ], 10, _hoisted_1$5)), [
             [vShow, unref(active)]
           ]) : createCommentVNode("v-if", true);
         };
       }
     });
-    var TabPane = /* @__PURE__ */ _export_sfc$1(_sfc_main$6, [["__file", "tab-pane.vue"]]);
+    var TabPane = /* @__PURE__ */ _export_sfc(_sfc_main$a, [["__file", "tab-pane.vue"]]);
     const ElTabs = withInstall(Tabs, {
       TabPane
     });
     const ElTabPane = withNoopInstall(TabPane);
+    function createLoadingComponent(options) {
+      let afterLeaveTimer;
+      const afterLeaveFlag = ref(false);
+      const data = reactive({
+        ...options,
+        originalPosition: "",
+        originalOverflow: "",
+        visible: false
+      });
+      function setText(text) {
+        data.text = text;
+      }
+      function destroySelf() {
+        const target = data.parent;
+        const ns = vm.ns;
+        if (!target.vLoadingAddClassList) {
+          let loadingNumber = target.getAttribute("loading-number");
+          loadingNumber = Number.parseInt(loadingNumber) - 1;
+          if (!loadingNumber) {
+            removeClass(target, ns.bm("parent", "relative"));
+            target.removeAttribute("loading-number");
+          } else {
+            target.setAttribute("loading-number", loadingNumber.toString());
+          }
+          removeClass(target, ns.bm("parent", "hidden"));
+        }
+        removeElLoadingChild();
+        loadingInstance.unmount();
+      }
+      function removeElLoadingChild() {
+        var _a2, _b;
+        (_b = (_a2 = vm.$el) == null ? void 0 : _a2.parentNode) == null ? void 0 : _b.removeChild(vm.$el);
+      }
+      function close() {
+        var _a2;
+        if (options.beforeClose && !options.beforeClose())
+          return;
+        afterLeaveFlag.value = true;
+        clearTimeout(afterLeaveTimer);
+        afterLeaveTimer = window.setTimeout(handleAfterLeave, 400);
+        data.visible = false;
+        (_a2 = options.closed) == null ? void 0 : _a2.call(options);
+      }
+      function handleAfterLeave() {
+        if (!afterLeaveFlag.value)
+          return;
+        const target = data.parent;
+        afterLeaveFlag.value = false;
+        target.vLoadingAddClassList = void 0;
+        destroySelf();
+      }
+      const elLoadingComponent = /* @__PURE__ */ defineComponent({
+        name: "ElLoading",
+        setup(_, { expose }) {
+          const { ns, zIndex: zIndex2 } = useGlobalComponentSettings("loading");
+          expose({
+            ns,
+            zIndex: zIndex2
+          });
+          return () => {
+            const svg = data.spinner || data.svg;
+            const spinner = h("svg", {
+              class: "circular",
+              viewBox: data.svgViewBox ? data.svgViewBox : "0 0 50 50",
+              ...svg ? { innerHTML: svg } : {}
+            }, [
+              h("circle", {
+                class: "path",
+                cx: "25",
+                cy: "25",
+                r: "20",
+                fill: "none"
+              })
+            ]);
+            const spinnerText = data.text ? h("p", { class: ns.b("text") }, [data.text]) : void 0;
+            return h(Transition, {
+              name: ns.b("fade"),
+              onAfterLeave: handleAfterLeave
+            }, {
+              default: withCtx(() => [
+                withDirectives(createVNode("div", {
+                  style: {
+                    backgroundColor: data.background || ""
+                  },
+                  class: [
+                    ns.b("mask"),
+                    data.customClass,
+                    data.fullscreen ? "is-fullscreen" : ""
+                  ]
+                }, [
+                  h("div", {
+                    class: ns.b("spinner")
+                  }, [spinner, spinnerText])
+                ]), [[vShow, data.visible]])
+              ])
+            });
+          };
+        }
+      });
+      const loadingInstance = createApp(elLoadingComponent);
+      const vm = loadingInstance.mount(document.createElement("div"));
+      return {
+        ...toRefs(data),
+        setText,
+        removeElLoadingChild,
+        close,
+        handleAfterLeave,
+        vm,
+        get $el() {
+          return vm.$el;
+        }
+      };
+    }
+    let fullscreenInstance = void 0;
+    const Loading = function(options = {}) {
+      if (!isClient)
+        return void 0;
+      const resolved = resolveOptions(options);
+      if (resolved.fullscreen && fullscreenInstance) {
+        return fullscreenInstance;
+      }
+      const instance = createLoadingComponent({
+        ...resolved,
+        closed: () => {
+          var _a2;
+          (_a2 = resolved.closed) == null ? void 0 : _a2.call(resolved);
+          if (resolved.fullscreen)
+            fullscreenInstance = void 0;
+        }
+      });
+      addStyle(resolved, resolved.parent, instance);
+      addClassList(resolved, resolved.parent, instance);
+      resolved.parent.vLoadingAddClassList = () => addClassList(resolved, resolved.parent, instance);
+      let loadingNumber = resolved.parent.getAttribute("loading-number");
+      if (!loadingNumber) {
+        loadingNumber = "1";
+      } else {
+        loadingNumber = `${Number.parseInt(loadingNumber) + 1}`;
+      }
+      resolved.parent.setAttribute("loading-number", loadingNumber);
+      resolved.parent.appendChild(instance.$el);
+      nextTick(() => instance.visible.value = resolved.visible);
+      if (resolved.fullscreen) {
+        fullscreenInstance = instance;
+      }
+      return instance;
+    };
+    const resolveOptions = (options) => {
+      var _a2, _b, _c, _d;
+      let target;
+      if (isString$1(options.target)) {
+        target = (_a2 = document.querySelector(options.target)) != null ? _a2 : document.body;
+      } else {
+        target = options.target || document.body;
+      }
+      return {
+        parent: target === document.body || options.body ? document.body : target,
+        background: options.background || "",
+        svg: options.svg || "",
+        svgViewBox: options.svgViewBox || "",
+        spinner: options.spinner || false,
+        text: options.text || "",
+        fullscreen: target === document.body && ((_b = options.fullscreen) != null ? _b : true),
+        lock: (_c = options.lock) != null ? _c : false,
+        customClass: options.customClass || "",
+        visible: (_d = options.visible) != null ? _d : true,
+        target
+      };
+    };
+    const addStyle = async (options, parent, instance) => {
+      const { nextZIndex } = instance.vm.zIndex || instance.vm._.exposed.zIndex;
+      const maskStyle = {};
+      if (options.fullscreen) {
+        instance.originalPosition.value = getStyle(document.body, "position");
+        instance.originalOverflow.value = getStyle(document.body, "overflow");
+        maskStyle.zIndex = nextZIndex();
+      } else if (options.parent === document.body) {
+        instance.originalPosition.value = getStyle(document.body, "position");
+        await nextTick();
+        for (const property2 of ["top", "left"]) {
+          const scroll = property2 === "top" ? "scrollTop" : "scrollLeft";
+          maskStyle[property2] = `${options.target.getBoundingClientRect()[property2] + document.body[scroll] + document.documentElement[scroll] - Number.parseInt(getStyle(document.body, `margin-${property2}`), 10)}px`;
+        }
+        for (const property2 of ["height", "width"]) {
+          maskStyle[property2] = `${options.target.getBoundingClientRect()[property2]}px`;
+        }
+      } else {
+        instance.originalPosition.value = getStyle(parent, "position");
+      }
+      for (const [key, value] of Object.entries(maskStyle)) {
+        instance.$el.style[key] = value;
+      }
+    };
+    const addClassList = (options, parent, instance) => {
+      const ns = instance.vm.ns || instance.vm._.exposed.ns;
+      if (!["absolute", "fixed", "sticky"].includes(instance.originalPosition.value)) {
+        addClass(parent, ns.bm("parent", "relative"));
+      } else {
+        removeClass(parent, ns.bm("parent", "relative"));
+      }
+      if (options.fullscreen && options.lock) {
+        addClass(parent, ns.bm("parent", "hidden"));
+      } else {
+        removeClass(parent, ns.bm("parent", "hidden"));
+      }
+    };
+    const INSTANCE_KEY = Symbol("ElLoading");
+    const createInstance = (el, binding) => {
+      var _a2, _b, _c, _d;
+      const vm = binding.instance;
+      const getBindingProp = (key) => isObject$1(binding.value) ? binding.value[key] : void 0;
+      const resolveExpression = (key) => {
+        const data = isString$1(key) && (vm == null ? void 0 : vm[key]) || key;
+        if (data)
+          return ref(data);
+        else
+          return data;
+      };
+      const getProp2 = (name) => resolveExpression(getBindingProp(name) || el.getAttribute(`element-loading-${hyphenate(name)}`));
+      const fullscreen = (_a2 = getBindingProp("fullscreen")) != null ? _a2 : binding.modifiers.fullscreen;
+      const options = {
+        text: getProp2("text"),
+        svg: getProp2("svg"),
+        svgViewBox: getProp2("svgViewBox"),
+        spinner: getProp2("spinner"),
+        background: getProp2("background"),
+        customClass: getProp2("customClass"),
+        fullscreen,
+        target: (_b = getBindingProp("target")) != null ? _b : fullscreen ? void 0 : el,
+        body: (_c = getBindingProp("body")) != null ? _c : binding.modifiers.body,
+        lock: (_d = getBindingProp("lock")) != null ? _d : binding.modifiers.lock
+      };
+      el[INSTANCE_KEY] = {
+        options,
+        instance: Loading(options)
+      };
+    };
+    const updateOptions = (newOptions, originalOptions) => {
+      for (const key of Object.keys(originalOptions)) {
+        if (isRef(originalOptions[key]))
+          originalOptions[key].value = newOptions[key];
+      }
+    };
+    const vLoading = {
+      mounted(el, binding) {
+        if (binding.value) {
+          createInstance(el, binding);
+        }
+      },
+      updated(el, binding) {
+        const instance = el[INSTANCE_KEY];
+        if (binding.oldValue !== binding.value) {
+          if (binding.value && !binding.oldValue) {
+            createInstance(el, binding);
+          } else if (binding.value && binding.oldValue) {
+            if (isObject$1(binding.value))
+              updateOptions(binding.value, instance.options);
+          } else {
+            instance == null ? void 0 : instance.instance.close();
+          }
+        }
+      },
+      unmounted(el) {
+        var _a2;
+        (_a2 = el[INSTANCE_KEY]) == null ? void 0 : _a2.instance.close();
+        el[INSTANCE_KEY] = null;
+      }
+    };
     var VueDrawCanvas = /* @__PURE__ */ defineComponent({
       name: "VueDrawCanvas",
       props: {
@@ -23504,7 +25817,10 @@ var require_index_001 = __commonJS({
         canvasRef: null,
         canvasEraser: false,
         canvasDisable: false,
-        canvasLine: 5
+        canvasLine: 5,
+        canvasBackground: null,
+        canvasBackgroundID: 0,
+        currentImgURL: ""
       }),
       actions: {
         setCanvasRef(ref2) {
@@ -23518,17 +25834,66 @@ var require_index_001 = __commonJS({
         },
         setCanvasLine(line) {
           this.canvasLine = line;
+        },
+        setCanvasBackground(background) {
+          this.canvasBackground = background;
+        },
+        setCurrentImgURL(URL) {
+          this.currentImgURL = URL;
+        },
+        setCanvasBackgroundID(ID) {
+          this.canvasBackgroundID = ID;
         }
       }
     });
-    const _export_sfc = (sfc, props) => {
-      const target = sfc.__vccOpts || sfc;
-      for (const [key, val] of props) {
-        target[key] = val;
+    const useMediaRecordingStore = /* @__PURE__ */ defineStore("mediaRecording", {
+      state: () => ({
+        recognizedText: "",
+        finishRecording: true
+      }),
+      actions: {
+        setRecognizedText(text) {
+          this.recognizedText = text;
+        },
+        toggleFinishRecording() {
+          this.finishRecording = !this.finishRecording;
+        }
       }
-      return target;
-    };
-    const _sfc_main$5 = {
+    });
+    const usePatientInfoStore = /* @__PURE__ */ defineStore("patient-info", {
+      state: () => ({
+        currentPatient: "blank",
+        switchPatient: false,
+        summaryContent: "",
+        rawReport: ""
+      }),
+      actions: {
+        setCurrentPatient(patient) {
+          this.currentPatient = patient;
+        },
+        setSwitchPatient(switchPatient) {
+          this.switchPatient = switchPatient;
+        },
+        setSummaryContent(summary) {
+          this.summaryContent = summary;
+        },
+        setRawReport(report) {
+          this.rawReport = report;
+        }
+      }
+    });
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+    const _sfc_main$9 = {
       name: "CanvasControler",
       components: {},
       data() {
@@ -23537,24 +25902,60 @@ var require_index_001 = __commonJS({
           canvasEraser: false,
           canvasDisable: false,
           canvasLine: 5,
-          strokes: []
+          canvasBackgroundImages: [],
+          canvasBackgroundId: 0,
+          strokes: [],
+          btnStatus: "UNDEFINED",
+          // "UNDEFINED" "CONNECTING" "OPEN" "CLOSING" "CLOSED"
+          resultText: "",
+          resultTextTemp: "",
+          seconds: 60,
+          isSwitching: false
         };
       },
       mounted() {
         const canvasStore = useDrawPanelStore();
+        this.mediaRecordingStore = useMediaRecordingStore();
+        this.patientInfoStore = usePatientInfoStore();
         this.canvasStore = canvasStore;
         this.canvas = canvasStore.canvasRef;
         this.canvasEraser = canvasStore.canvasEraser;
         this.canvasDisable = canvasStore.canvasDisable;
         this.canvasLine = canvasStore.canvasLine;
+        this.APIKey = "8b82b9730a2c117f3deccc41ee7dd2c4";
+        this.APISecret = "Mzg5OWNmNDMxODk5MDNiMzIyNWZmMDdm";
+        this.APPID = "8301bc30";
+        this.chunks = [];
+        this.recorder = null;
+        this.iatWS = null;
+        this.countdownInterval = null;
+        const script = document.createElement("script");
+        script.src = "/recorderTools/index.umd.js";
+        script.onload = () => {
+          this.recorder = new window.RecorderManager("/recorderTools");
+          this.setupRecorderEvents();
+        };
+        document.head.appendChild(script);
+        this.spaceDown = false;
         const hidebtn = document.getElementById("hidebtn");
         hidebtn.addEventListener("mousedown", this.hideStroke);
         hidebtn.addEventListener("mouseup", this.showStroke);
+        window.addEventListener("keydown", this.handleKeyDown);
+        window.addEventListener("keyup", this.handleKeyUp);
       },
       destroyed() {
         const hidebtn = document.getElementById("hidebtn");
         hidebtn.removeEventListener("mousedown", this.hideStroke);
         hidebtn.removeEventListener("mouseup", this.showStroke);
+        if (this.countdownInterval) {
+          clearInterval(this.countdownInterval);
+        }
+        if (this.recorder) {
+          this.recorder.stop();
+        }
+        if (this.iatWS) {
+          this.iatWS.close();
+        }
       },
       methods: {
         hideStroke() {
@@ -23582,10 +25983,246 @@ var require_index_001 = __commonJS({
             event: "event",
             data: {}
           });
+        },
+        getWebSocketUrl() {
+          const url = "wss://iat-api.xfyun.cn/v2/iat";
+          const host = "iat-api.xfyun.cn";
+          const date = (/* @__PURE__ */ new Date()).toGMTString();
+          const algorithm = "hmac-sha256";
+          const headers = "host date request-line";
+          const signatureOrigin = `host: ${host}
+date: ${date}
+GET /v2/iat HTTP/1.1`;
+          const signatureSha = window.CryptoJS.HmacSHA256(signatureOrigin, this.APISecret);
+          const signature = window.CryptoJS.enc.Base64.stringify(signatureSha);
+          const authorizationOrigin = `api_key="${this.APIKey}", algorithm="${algorithm}", headers="${headers}", signature="${signature}"`;
+          const authorization = btoa(authorizationOrigin);
+          return `${url}?authorization=${authorization}&date=${date}&host=${host}`;
+        },
+        toBase64(buffer) {
+          let binary = "";
+          const bytes = new Uint8Array(buffer);
+          const len = bytes.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          return window.btoa(binary);
+        },
+        countdown() {
+          this.seconds = 60;
+          this.countdownInterval = setInterval(() => {
+            this.seconds -= 1;
+            if (this.seconds <= 0) {
+              clearInterval(this.countdownInterval);
+              this.recorder.stop();
+            }
+          }, 1e3);
+        },
+        getBtnText() {
+          const status = this.btnStatus;
+          if (status === "UNDEFINED" || status === "CLOSED") {
+            return "PressSpeaking";
+          } else if (status === "CONNECTING" || status === "CLOSING") {
+            return status;
+          } else if (status === "OPEN") {
+            return this.seconds;
+          } else {
+            return "开始录音";
+          }
+        },
+        changeBtnStatus(status) {
+          this.btnStatus = status;
+          if (status === "CONNECTING") {
+            this.resultText = "";
+            this.resultTextTemp = "";
+          } else if (status === "OPEN") {
+            this.countdown();
+          }
+        },
+        renderResult(resultData) {
+          const jsonData = JSON.parse(resultData);
+          if (jsonData.data && jsonData.data.result) {
+            const data = jsonData.data.result;
+            let str = "";
+            const ws = data.ws;
+            for (let i = 0; i < ws.length; i++) {
+              str = str + ws[i].cw[0].w;
+            }
+            if (data.pgs) {
+              if (data.pgs === "apd") {
+                this.resultText = this.resultTextTemp;
+              }
+              this.resultTextTemp = this.resultText + str;
+            } else {
+              this.resultText = this.resultText + str;
+            }
+            this.mediaRecordingStore.setRecognizedText(this.resultTextTemp || this.resultText || "");
+          }
+          if (jsonData.code === 0 && jsonData.data.status === 2) {
+            this.iatWS.close();
+          }
+          if (jsonData.code !== 0) {
+            this.iatWS.close();
+            console.error(jsonData);
+          }
+        },
+        connectWebSocket() {
+          const websocketUrl = this.getWebSocketUrl();
+          if ("WebSocket" in window) {
+            this.iatWS = new WebSocket(websocketUrl);
+          } else if ("MozWebSocket" in window) {
+            this.iatWS = new MozWebSocket(websocketUrl);
+          } else {
+            alert("浏览器不支持WebSocket");
+            return;
+          }
+          this.changeBtnStatus("CONNECTING");
+          this.iatWS.onopen = (e) => {
+            this.recorder.start({
+              sampleRate: 16e3,
+              frameSize: 1280
+            });
+            const params = {
+              common: {
+                app_id: this.APPID
+              },
+              business: {
+                language: "zh_cn",
+                domain: "iat",
+                accent: "mandarin",
+                vad_eos: 5e3,
+                dwa: "wpgs"
+              },
+              data: {
+                status: 0,
+                format: "audio/L16;rate=16000",
+                encoding: "raw"
+              }
+            };
+            this.iatWS.send(JSON.stringify(params));
+            this.mediaRecordingStore.toggleFinishRecording();
+          };
+          this.iatWS.onmessage = (e) => {
+            this.renderResult(e.data);
+          };
+          this.iatWS.onerror = (e) => {
+            console.error(e);
+            this.recorder.stop();
+            this.changeBtnStatus("CLOSED");
+          };
+          this.iatWS.onclose = (e) => {
+            this.recorder.stop();
+            this.changeBtnStatus("CLOSED");
+            this.mediaRecordingStore.toggleFinishRecording();
+          };
+        },
+        setupRecorderEvents() {
+          this.recorder.onStart = () => {
+            this.changeBtnStatus("OPEN");
+          };
+          this.recorder.onFrameRecorded = ({ isLastFrame, frameBuffer }) => {
+            if (this.iatWS && this.iatWS.readyState === this.iatWS.OPEN) {
+              this.iatWS.send(
+                JSON.stringify({
+                  data: {
+                    status: isLastFrame ? 2 : 1,
+                    format: "audio/L16;rate=16000",
+                    encoding: "raw",
+                    audio: this.toBase64(frameBuffer)
+                  }
+                })
+              );
+              if (isLastFrame) {
+                this.changeBtnStatus("CLOSING");
+              }
+            }
+          };
+          this.recorder.onStop = () => {
+            clearInterval(this.countdownInterval);
+          };
+        },
+        toggleRecording() {
+          if (this.btnStatus === "UNDEFINED" || this.btnStatus === "CLOSED") {
+            this.connectWebSocket();
+          } else if (this.btnStatus === "CONNECTING" || this.btnStatus === "OPEN") {
+            this.recorder.stop();
+          }
+        },
+        setImage(event) {
+          const files = Array.from(event.target.files);
+          if (!files.length) return;
+          this.canvasBackgroundImages = [];
+          const folderName = files[0].webkitRelativePath?.split("/")[0] || "未知文件夹";
+          this.patientInfoStore.setCurrentPatient(folderName);
+          const imgFiles = files.filter((file) => file.type.startsWith("image/"));
+          let URL = window.URL;
+          for (let i = 0; i < imgFiles.length; ++i) {
+            const file = URL.createObjectURL(imgFiles[i]);
+            this.canvasBackgroundImages.push(file);
+          }
+          console.log("pre:", this.patientInfoStore.switchPatient);
+          this.patientInfoStore.setSwitchPatient(true);
+          console.log("after:", this.patientInfoStore.switchPatient);
+          this.canvasStore.setCanvasBackgroundID(0);
+          this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[0]);
+          this.canvasBackgroundId = 0;
+        },
+        _loadPreviousImage() {
+          if (this.canvasBackgroundId - 1 < 0) return;
+          if (this.isSwitching) return;
+          this.isSwitching = true;
+          let idex = --this.canvasBackgroundId;
+          this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+          this.canvasStore.setCanvasBackgroundID(idex);
+          setTimeout(() => {
+            this.isSwitching = false;
+          }, 500);
+        },
+        _loadNextImage() {
+          if (this.canvasBackgroundId + 1 >= this.canvasBackgroundImages.length) return;
+          if (this.isSwitching) return;
+          this.isSwitching = true;
+          let idex = ++this.canvasBackgroundId;
+          this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[idex]);
+          this.canvasStore.setCanvasBackgroundID(idex);
+          setTimeout(() => {
+            this.isSwitching = false;
+          }, 500);
+        },
+        loadPreviousImage: debounce(function() {
+          this._loadPreviousImage();
+        }, 300),
+        loadNextImage: debounce(function() {
+          this._loadNextImage();
+        }, 300),
+        exportImage() {
+          const link = document.createElement("a");
+          link.href = this.canvasStore.currentImgURL;
+          link.download = "image.png";
+          link.click();
+        },
+        handleKeyDown(event) {
+          const active = document.activeElement;
+          if (active && active.tagName.toLowerCase() === "textarea") return;
+          if (event.key === " " || event.key === "Spacebar") {
+            event.preventDefault();
+            if (!this.spaceDown) {
+              this.spaceDown = true;
+              this.toggleRecording();
+            }
+          }
+        },
+        handleKeyUp(event) {
+          const active = document.activeElement;
+          if (active && active.tagName.toLowerCase() === "textarea") return;
+          if ((event.key === " " || event.key === "Spacebar") && this.spaceDown) {
+            this.spaceDown = false;
+            this.toggleRecording();
+          }
         }
       }
     };
-    const _hoisted_1$2 = {
+    const _hoisted_1$4 = {
       xmlns: "http://www.w3.org/2000/svg",
       width: "24",
       height: "24",
@@ -23593,15 +26230,15 @@ var require_index_001 = __commonJS({
       class: "bi bi-lock",
       viewBox: "0 0 16 16"
     };
-    const _hoisted_2 = {
+    const _hoisted_2$1 = {
       key: 0,
       d: "M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM5 8h6a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"
     };
-    const _hoisted_3 = {
+    const _hoisted_3$1 = {
       key: 1,
       d: "M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2zM3 8a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1H3z"
     };
-    const _hoisted_4 = { key: 0 };
+    const _hoisted_4$1 = { key: 0 };
     const _hoisted_5 = { key: 1 };
     const _hoisted_6 = { key: 0 };
     const _hoisted_7 = { key: 1 };
@@ -23625,6 +26262,10 @@ var require_index_001 = __commonJS({
       style: { "margin": "3px" }
     };
     const _hoisted_11 = {
+      key: 0,
+      style: { "display": "inline-flex", "align-items": "center" }
+    };
+    const _hoisted_12 = {
       xmlns: "http://www.w3.org/2000/svg",
       width: "24",
       height: "24",
@@ -23633,7 +26274,8 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 16 16",
       style: { "margin": "3px" }
     };
-    const _hoisted_12 = {
+    const _hoisted_13 = { key: 1 };
+    const _hoisted_14 = {
       xmlns: "http://www.w3.org/2000/svg",
       width: "24",
       height: "24",
@@ -23642,7 +26284,7 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 16 16",
       style: { "margin": "3px" }
     };
-    const _hoisted_13 = {
+    const _hoisted_15 = {
       xmlns: "http://www.w3.org/2000/svg",
       width: "24",
       height: "24",
@@ -23651,7 +26293,7 @@ var require_index_001 = __commonJS({
       viewBox: "0 0 16 16",
       style: { "margin": "3px" }
     };
-    function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
+    function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
       const _component_el_col = ElCol;
       const _component_el_slider = ElSlider;
       const _component_el_row = ElRow;
@@ -23668,7 +26310,7 @@ var require_index_001 = __commonJS({
                 span: 3,
                 justify: "center"
               }, {
-                default: withCtx(() => _cache[7] || (_cache[7] = [
+                default: withCtx(() => _cache[12] || (_cache[12] = [
                   createBaseVNode("button", {
                     type: "button",
                     id: "hidebtn",
@@ -23701,10 +26343,10 @@ var require_index_001 = __commonJS({
                     onClick: _cache[0] || (_cache[0] = withModifiers(($event) => $options.onDisableChange(), ["prevent"])),
                     class: "canvas-button"
                   }, [
-                    (openBlock(), createElementBlock("svg", _hoisted_1$2, [
-                      !$data.canvasDisable ? (openBlock(), createElementBlock("path", _hoisted_2)) : (openBlock(), createElementBlock("path", _hoisted_3))
+                    (openBlock(), createElementBlock("svg", _hoisted_1$4, [
+                      !$data.canvasDisable ? (openBlock(), createElementBlock("path", _hoisted_2$1)) : (openBlock(), createElementBlock("path", _hoisted_3$1))
                     ])),
-                    !$data.canvasDisable ? (openBlock(), createElementBlock("span", _hoisted_4, "Lock")) : (openBlock(), createElementBlock("span", _hoisted_5, "Unlock"))
+                    !$data.canvasDisable ? (openBlock(), createElementBlock("span", _hoisted_4$1, "Lock")) : (openBlock(), createElementBlock("span", _hoisted_5, "Unlock"))
                   ])
                 ]),
                 _: 1
@@ -23718,7 +26360,7 @@ var require_index_001 = __commonJS({
                     type: "button",
                     onClick: _cache[1] || (_cache[1] = withModifiers(($event) => $data.canvas.undo(), ["prevent"])),
                     class: "canvas-button"
-                  }, _cache[8] || (_cache[8] = [
+                  }, _cache[13] || (_cache[13] = [
                     createBaseVNode("svg", {
                       xmlns: "http://www.w3.org/2000/svg",
                       width: "24",
@@ -23747,7 +26389,7 @@ var require_index_001 = __commonJS({
                     type: "button",
                     onClick: _cache[2] || (_cache[2] = withModifiers(($event) => $data.canvas.reset(), ["prevent"])),
                     class: "canvas-button"
-                  }, _cache[9] || (_cache[9] = [
+                  }, _cache[14] || (_cache[14] = [
                     createBaseVNode("svg", {
                       xmlns: "http://www.w3.org/2000/svg",
                       width: "24",
@@ -23773,7 +26415,7 @@ var require_index_001 = __commonJS({
                     onClick: _cache[3] || (_cache[3] = withModifiers(($event) => $options.onEraserChange(), ["prevent"])),
                     class: "canvas-button"
                   }, [
-                    $data.canvasEraser ? (openBlock(), createElementBlock("span", _hoisted_6, _cache[10] || (_cache[10] = [
+                    $data.canvasEraser ? (openBlock(), createElementBlock("span", _hoisted_6, _cache[15] || (_cache[15] = [
                       createBaseVNode("svg", {
                         xmlns: "http://www.w3.org/2000/svg",
                         width: "24",
@@ -23785,7 +26427,7 @@ var require_index_001 = __commonJS({
                         createBaseVNode("path", { d: "M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" })
                       ], -1),
                       createTextVNode(" Draw ")
-                    ]))) : (openBlock(), createElementBlock("span", _hoisted_7, _cache[11] || (_cache[11] = [
+                    ]))) : (openBlock(), createElementBlock("span", _hoisted_7, _cache[16] || (_cache[16] = [
                       createBaseVNode("svg", {
                         xmlns: "http://www.w3.org/2000/svg",
                         width: "24",
@@ -23808,7 +26450,7 @@ var require_index_001 = __commonJS({
               }, {
                 default: withCtx(() => [
                   createBaseVNode("div", _hoisted_8, [
-                    _cache[12] || (_cache[12] = createBaseVNode("span", { class: "demonstration" }, "Size", -1)),
+                    _cache[17] || (_cache[17] = createBaseVNode("span", { class: "demonstration" }, "Size", -1)),
                     createVNode(_component_el_slider, {
                       modelValue: $data.canvasLine,
                       "onUpdate:modelValue": _cache[4] || (_cache[4] = ($event) => $data.canvasLine = $event),
@@ -23816,7 +26458,7 @@ var require_index_001 = __commonJS({
                       min: 5,
                       max: 51,
                       "show-stops": "",
-                      onClick: _cache[5] || (_cache[5] = ($event) => $options.onLineChange())
+                      onInput: _cache[5] || (_cache[5] = ($event) => $options.onLineChange())
                     }, null, 8, ["modelValue"])
                   ])
                 ]),
@@ -23837,29 +26479,39 @@ var require_index_001 = __commonJS({
                       createVNode(_component_el_button, {
                         type: "default",
                         size: "large",
-                        round: ""
+                        round: "",
+                        onClick: _cache[6] || (_cache[6] = withModifiers(($event) => $options.loadPreviousImage(), ["prevent"]))
                       }, {
                         default: withCtx(() => [
-                          (openBlock(), createElementBlock("svg", _hoisted_9, _cache[13] || (_cache[13] = [
+                          (openBlock(), createElementBlock("svg", _hoisted_9, _cache[18] || (_cache[18] = [
                             createBaseVNode("path", {
                               "fill-rule": "evenodd",
                               d: "M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm11.5 5.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5z"
                             }, null, -1)
                           ]))),
-                          _cache[14] || (_cache[14] = createBaseVNode("span", null, "Previous", -1))
+                          _cache[19] || (_cache[19] = createBaseVNode("span", null, "Previous", -1))
                         ]),
                         _: 1
                       }),
+                      createBaseVNode("input", {
+                        ref: "fileInput",
+                        type: "file",
+                        webkitdirectory: "",
+                        directory: "",
+                        onChange: _cache[7] || (_cache[7] = (...args) => $options.setImage && $options.setImage(...args)),
+                        style: { "display": "none" }
+                      }, null, 544),
                       createVNode(_component_el_button, {
                         type: "default",
                         size: "large",
-                        round: ""
+                        round: "",
+                        onClick: _cache[8] || (_cache[8] = withModifiers(($event) => _ctx.$refs.fileInput.click(), ["prevent"]))
                       }, {
                         default: withCtx(() => [
-                          (openBlock(), createElementBlock("svg", _hoisted_10, _cache[15] || (_cache[15] = [
+                          (openBlock(), createElementBlock("svg", _hoisted_10, _cache[20] || (_cache[20] = [
                             createBaseVNode("path", { d: "M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a2 2 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139q.323-.119.684-.12h5.396z" }, null, -1)
                           ]))),
-                          _cache[16] || (_cache[16] = createBaseVNode("span", null, "Import", -1))
+                          _cache[21] || (_cache[21] = createBaseVNode("span", null, "Import", -1))
                         ]),
                         _: 1
                       }),
@@ -23867,40 +26519,48 @@ var require_index_001 = __commonJS({
                         type: "default",
                         size: "large",
                         round: "",
-                        class: "speaking-btn"
+                        class: "speaking-btn",
+                        onMousedown: $options.toggleRecording,
+                        onMouseup: $options.toggleRecording
                       }, {
                         default: withCtx(() => [
-                          _cache[18] || (_cache[18] = createBaseVNode("span", null, "Press", -1)),
-                          (openBlock(), createElementBlock("svg", _hoisted_11, _cache[17] || (_cache[17] = [
-                            createBaseVNode("path", { d: "M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" }, null, -1),
-                            createBaseVNode("path", { d: "M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445" }, null, -1)
-                          ]))),
-                          _cache[19] || (_cache[19] = createBaseVNode("span", null, "Speaking", -1))
+                          this.getBtnText() === "PressSpeaking" ? (openBlock(), createElementBlock("span", _hoisted_11, [
+                            _cache[23] || (_cache[23] = createBaseVNode("span", null, "Press", -1)),
+                            (openBlock(), createElementBlock("svg", _hoisted_12, _cache[22] || (_cache[22] = [
+                              createBaseVNode("path", { d: "M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" }, null, -1),
+                              createBaseVNode("path", { d: "M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445" }, null, -1)
+                            ]))),
+                            _cache[24] || (_cache[24] = createBaseVNode("span", null, "Speaking", -1))
+                          ])) : (openBlock(), createElementBlock("span", _hoisted_13, [
+                            createBaseVNode("span", null, toDisplayString($options.getBtnText()), 1)
+                          ]))
                         ]),
                         _: 1
-                      }),
+                      }, 8, ["onMousedown", "onMouseup"]),
                       createVNode(_component_el_button, {
                         type: "default",
                         size: "large",
-                        round: ""
+                        round: "",
+                        onClick: _cache[9] || (_cache[9] = withModifiers(($event) => $options.exportImage(), ["prevent"]))
                       }, {
                         default: withCtx(() => [
-                          (openBlock(), createElementBlock("svg", _hoisted_12, _cache[20] || (_cache[20] = [
+                          (openBlock(), createElementBlock("svg", _hoisted_14, _cache[25] || (_cache[25] = [
                             createBaseVNode("path", { d: "M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z" }, null, -1),
                             createBaseVNode("path", { d: "M4.5 12.5A.5.5 0 0 1 5 12h3a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m0-2A.5.5 0 0 1 5 10h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m1.639-3.708 1.33.886 1.854-1.855a.25.25 0 0 1 .289-.047l1.888.974V8.5a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V8s1.54-1.274 1.639-1.208M6.25 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" }, null, -1)
                           ]))),
-                          _cache[21] || (_cache[21] = createBaseVNode("span", null, "Export", -1))
+                          _cache[26] || (_cache[26] = createBaseVNode("span", null, "Export", -1))
                         ]),
                         _: 1
                       }),
                       createVNode(_component_el_button, {
                         type: "default",
                         size: "large",
-                        round: ""
+                        round: "",
+                        onClick: _cache[10] || (_cache[10] = withModifiers(($event) => $options.loadNextImage(), ["prevent"]))
                       }, {
                         default: withCtx(() => [
-                          _cache[23] || (_cache[23] = createBaseVNode("span", null, "Next", -1)),
-                          (openBlock(), createElementBlock("svg", _hoisted_13, _cache[22] || (_cache[22] = [
+                          _cache[28] || (_cache[28] = createBaseVNode("span", null, "Next", -1)),
+                          (openBlock(), createElementBlock("svg", _hoisted_15, _cache[27] || (_cache[27] = [
                             createBaseVNode("path", {
                               "fill-rule": "evenodd",
                               d: "M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm4.5 5.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z"
@@ -23926,25 +26586,25 @@ var require_index_001 = __commonJS({
               createVNode(_component_el_col, { span: 20 }, {
                 default: withCtx(() => [
                   createVNode(_component_el_row, { style: { "font-size": "14px" } }, {
-                    default: withCtx(() => _cache[24] || (_cache[24] = [
+                    default: withCtx(() => _cache[29] || (_cache[29] = [
                       createTextVNode("1. Press Import Button to Select the medical image folder.")
                     ])),
                     _: 1
                   }),
                   createVNode(_component_el_row, { style: { "font-size": "14px" } }, {
-                    default: withCtx(() => _cache[25] || (_cache[25] = [
+                    default: withCtx(() => _cache[30] || (_cache[30] = [
                       createTextVNode("2. Press Previous/Next Button to move forward/backward in the medical image list.")
                     ])),
                     _: 1
                   }),
                   createVNode(_component_el_row, { style: { "font-size": "14px" } }, {
-                    default: withCtx(() => _cache[26] || (_cache[26] = [
+                    default: withCtx(() => _cache[31] || (_cache[31] = [
                       createTextVNode("3. Press Export Button to generate PDF report.")
                     ])),
                     _: 1
                   }),
                   createVNode(_component_el_row, { style: { "font-size": "14px" } }, {
-                    default: withCtx(() => _cache[27] || (_cache[27] = [
+                    default: withCtx(() => _cache[32] || (_cache[32] = [
                       createTextVNode("4. Labeled Image will saved automatically.")
                     ])),
                     _: 1
@@ -23964,9 +26624,9 @@ var require_index_001 = __commonJS({
                         size: "large",
                         style: { "height": "60px", "width": "60px" },
                         round: "",
-                        onClick: _cache[6] || (_cache[6] = ($event) => $options.openConfigWin())
+                        onClick: _cache[11] || (_cache[11] = ($event) => $options.openConfigWin())
                       }, {
-                        default: withCtx(() => _cache[28] || (_cache[28] = [
+                        default: withCtx(() => _cache[33] || (_cache[33] = [
                           createBaseVNode("svg", {
                             xmlns: "http://www.w3.org/2000/svg",
                             width: "32",
@@ -23994,10 +26654,10 @@ var require_index_001 = __commonJS({
         _: 1
       });
     }
-    const ControlPanel = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$2], ["__scopeId", "data-v-2c8599bb"]]);
+    const ControlPanel = /* @__PURE__ */ _export_sfc$1(_sfc_main$9, [["render", _sfc_render$3], ["__scopeId", "data-v-e690c942"]]);
     const canvasWidth = ref(window.innerWidth * 0.68);
     const canvasHeight = ref(canvasWidth.value / 16 * 9);
-    const _sfc_main$4 = {
+    const _sfc_main$8 = {
       name: "DrawCanvas",
       components: {
         VueDrawCanvas,
@@ -24023,7 +26683,16 @@ var require_index_001 = __commonJS({
           backgroundImage: "",
           watermark: null,
           additionalImages: [],
-          imageSrc: ""
+          imageSrc: "",
+          currentImgURL: "",
+          canvasStore: null,
+          previousBackgroundID: 0,
+          currentBackgroundID: 0,
+          history: {},
+          currentPatient: "blank",
+          previousPatient: "blank",
+          patientInfoStore: null,
+          canvasActive: false
         };
       },
       computed: {
@@ -24038,6 +26707,22 @@ var require_index_001 = __commonJS({
         canvasLine() {
           const store = useDrawPanelStore();
           return store.canvasLine;
+        },
+        canvasPatient() {
+          const store = usePatientInfoStore();
+          return store.currentPatient;
+        },
+        canvasBackground() {
+          const store = useDrawPanelStore();
+          return store.canvasBackground;
+        },
+        patientRawReport() {
+          const store = usePatientInfoStore();
+          return store.rawReport;
+        },
+        patientSummay() {
+          const store = usePatientInfoStore();
+          return store.summaryContent;
         }
       },
       watch: {
@@ -24050,29 +26735,161 @@ var require_index_001 = __commonJS({
         },
         canvasLine(newValue) {
           this.line = newValue;
+        },
+        canvasPatient(newValue) {
+          this.previousPatient = this.currentPatient;
+          this.currentPatient = newValue;
+        },
+        async canvasBackground(newValue) {
+          this.previousBackgroundID = this.currentBackgroundID;
+          this.currentBackgroundID = this.canvasStore.canvasBackgroundID;
+          if (this.patientInfoStore.switchPatient) {
+            this.saveReportData(this.previousPatient, this.previousBackgroundID);
+            this.saveCanvasData(this.previousPatient, this.previousBackgroundID);
+          } else this.saveCanvasData(this.currentPatient, this.previousBackgroundID);
+          this.$refs.VueCanvasDrawing.reset();
+          if (newValue) {
+            const fitImg = await this.resizeImageToFitCanvas(
+              newValue,
+              this.width,
+              this.height
+            );
+            this.backgroundImage = fitImg;
+          } else {
+            this.backgroundImage = "";
+          }
+          await this.$refs.VueCanvasDrawing.redraw(true);
+          await this.$nextTick();
+          await this.loadCanvasData(this.currentPatient, this.currentBackgroundID);
+          await this.$refs.VueCanvasDrawing.redraw(true);
+        },
+        patientRawReport(newVal) {
+          this.saveReportData(this.currentPatient, this.currentBackgroundID);
+        },
+        patientSummay(newVal) {
+          console.log("summary");
+          this.saveReportData(this.currentPatient, this.currrentBackgroundID);
         }
       },
       mounted() {
-        const canvasStore = useDrawPanelStore();
-        canvasStore.setCanvasRef(this.$refs.VueCanvasDrawing);
+        this.canvasStore = useDrawPanelStore();
+        this.canvasStore.setCanvasRef(this.$refs.VueCanvasDrawing);
+        this.patientInfoStore = usePatientInfoStore();
+        document.addEventListener("keydown", this.handleKeyDown);
+        this.$nextTick(() => {
+          const canvasEl = this.$el.querySelector("canvas");
+          if (canvasEl) canvasEl.setAttribute("tabindex", "0");
+        });
       },
       destroyed() {
+        document.removeEventListener("keydown", this.handleKeyDown);
       },
       methods: {
-        async setImage(event) {
-          let URL = window.URL;
-          this.backgroundImage = URL.createObjectURL(event.target.files[0]);
-          await this.$refs.VueCanvasDrawing.redraw();
-        },
         getCoordinate(event) {
           let coordinates = this.$refs.VueCanvasDrawing.getCoordinates(event);
           this.x = coordinates.x;
           this.y = coordinates.y;
+        },
+        resizeImageToFitCanvas(imageUrl, canvasWidth2, canvasHeight2) {
+          return new Promise((resolve2, reject) => {
+            const img = new window.Image();
+            img.crossOrigin = "anonymous";
+            img.onload = function() {
+              const canvas = document.createElement("canvas");
+              canvas.width = canvasWidth2;
+              canvas.height = canvasHeight2;
+              const ctx = canvas.getContext("2d");
+              const scale = Math.min(
+                canvasWidth2 / img.width,
+                canvasHeight2 / img.height
+              );
+              const newWidth = img.width * scale;
+              const newHeight = img.height * scale;
+              const offsetX = (canvasWidth2 - newWidth) / 2;
+              const offsetY = (canvasHeight2 - newHeight) / 2;
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(0, 0, canvasWidth2, canvasHeight2);
+              ctx.drawImage(img, offsetX, offsetY, newWidth, newHeight);
+              resolve2(canvas.toDataURL());
+            };
+            img.onerror = reject;
+            img.src = imageUrl;
+          });
+        },
+        onImageUpdate(URL) {
+          if (this.canvasStore) this.canvasStore.setCurrentImgURL(URL);
+        },
+        saveCanvasData(patient, id) {
+          const drawer = this.$refs.VueCanvasDrawing;
+          const canvasStrokes = JSON.parse(JSON.stringify(drawer.getAllStrokes()));
+          const canvasImages = JSON.parse(JSON.stringify(drawer.images));
+          const canvasTrash = JSON.parse(JSON.stringify(drawer.trash));
+          this.history[id] = {
+            strokes: canvasStrokes,
+            images: canvasImages,
+            trash: canvasTrash
+          };
+          window.api.invoke("renderer-to-main", {
+            name: "save-history",
+            event: "cevent",
+            data: {
+              "patient": patient,
+              "history": JSON.parse(JSON.stringify(this.history))
+            }
+          });
+        },
+        saveReportData(patient, id) {
+          window.api.invoke("renderer-to-main", {
+            name: "save-report",
+            event: "cevent",
+            data: {
+              "patient": patient,
+              "report": {
+                "rawReport": this.patientInfoStore.rawReport,
+                "summary": this.patientInfoStore.summaryContent
+              }
+            }
+          });
+        },
+        async loadCanvasData(patient, id) {
+          this.history = await window.api.invoke("renderer-to-main-async", {
+            name: "load-history",
+            event: "asyncevent",
+            data: {
+              "patient": patient
+            }
+          });
+          const drawer = this.$refs.VueCanvasDrawing;
+          const canvasData = this.history[id] || {
+            strokes: [],
+            images: [],
+            trash: []
+          };
+          drawer.images = [].concat(canvasData.images, drawer.images);
+          drawer.trash = canvasData.trash;
+        },
+        handleKeyDown(event) {
+          if (event.ctrlKey) {
+            const drawer = this.$refs.VueCanvasDrawing;
+            if (event.key === "s" || event.ket === "S") {
+              this.saveCanvasData(this.currentPatient, this.currentBackgroundID);
+              this.saveReportData(this.currentPatient, this.currentBackgroundID);
+            }
+            if (!this.canvasActive) return;
+            if (event.key === "z" || event.key === "Z") drawer.undo();
+            if (event.key === "y" || event.key === "Y") drawer.redo();
+          }
+        },
+        canvasFocus() {
+          this.canvasActive = true;
+        },
+        canvasBlur() {
+          this.canvasActive = false;
         }
       }
     };
-    const _hoisted_1$1 = { class: "canvas" };
-    function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+    const _hoisted_1$3 = { class: "canvas" };
+    function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
       const _component_VueDrawCanvas = resolveComponent("VueDrawCanvas");
       const _component_el_row = ElRow;
       const _component_el_col = ElCol;
@@ -24084,11 +26901,14 @@ var require_index_001 = __commonJS({
             class: "canvas-panel"
           }, {
             default: withCtx(() => [
-              createBaseVNode("div", _hoisted_1$1, [
+              createBaseVNode("div", _hoisted_1$3, [
                 createVNode(_component_VueDrawCanvas, {
                   ref: "VueCanvasDrawing",
                   image: $data.image,
-                  "onUpdate:image": _cache[0] || (_cache[0] = ($event) => $data.image = $event),
+                  "onUpdate:image": [
+                    _cache[0] || (_cache[0] = ($event) => $data.image = $event),
+                    $options.onImageUpdate
+                  ],
                   width: $data.width,
                   height: $data.height,
                   "stroke-type": $data.strokeType,
@@ -24103,13 +26923,17 @@ var require_index_001 = __commonJS({
                   watermark: $data.watermark,
                   "initial-image": $data.initialImage,
                   saveAs: "png",
+                  "output-width": $data.width,
+                  "output-height": $data.height,
                   styles: {
                     border: "solid 1px #000"
                   },
                   lock: $data.disabled,
                   onMousemove: _cache[1] || (_cache[1] = ($event) => $options.getCoordinate($event)),
-                  "additional-images": $data.additionalImages
-                }, null, 8, ["image", "width", "height", "stroke-type", "line-cap", "line-join", "fill-shape", "eraser", "lineWidth", "color", "background-color", "background-image", "watermark", "initial-image", "lock", "additional-images"])
+                  "additional-images": $data.additionalImages,
+                  onFocus: $options.canvasFocus,
+                  onBlur: $options.canvasBlur
+                }, null, 8, ["image", "width", "height", "stroke-type", "line-cap", "line-join", "fill-shape", "eraser", "lineWidth", "color", "background-color", "background-image", "watermark", "initial-image", "output-width", "output-height", "lock", "additional-images", "onUpdate:image", "onFocus", "onBlur"])
               ])
             ]),
             _: 1
@@ -24118,8 +26942,8 @@ var require_index_001 = __commonJS({
         _: 1
       });
     }
-    const DrawPanel = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$1], ["__scopeId", "data-v-09c36ac1"]]);
-    const _sfc_main$3 = {
+    const DrawPanel = /* @__PURE__ */ _export_sfc$1(_sfc_main$8, [["render", _sfc_render$2], ["__scopeId", "data-v-bc68f297"]]);
+    const _sfc_main$7 = {
       __name: "DrawingPanel",
       setup(__props) {
         return (_ctx, _cache) => {
@@ -24134,22 +26958,23 @@ var require_index_001 = __commonJS({
         };
       }
     };
-    const _sfc_main$2 = {
-      __name: "ReportPanel",
-      setup(__props) {
-        useCssVars((_ctx) => ({
-          "dcaf0710": scrollbar_max.value
-        }));
-        const summary_area = ref("");
-        const recording_area = ref("");
-        const activeName = ref("first");
-        const scrollbar_max = ref(Math.floor(window.innerHeight * 0.42) + "px");
-        const chosenTest = reactive({
-          testName: ""
-        });
-        try {
-          testList = localStorage.getItem("testList");
-          const testListOptions = testList.reduce((acc, item, index) => {
+    const useTestListStore = /* @__PURE__ */ defineStore("testList", {
+      state: () => ({
+        testListOptions: [],
+        testList: []
+      }),
+      getters: {
+        getList() {
+          return self.testList;
+        },
+        getTestOptions() {
+          return self.testListOptions;
+        }
+      },
+      actions: {
+        setList(ref2) {
+          this.testList = ref2;
+          this.testListOptions = ref2.reduce((acc, item, index) => {
             acc[index] = {
               "key": item,
               "value": item,
@@ -24157,11 +26982,226 @@ var require_index_001 = __commonJS({
             };
             return acc;
           }, {});
-        } catch {
         }
+      }
+    });
+    const usePointStore = /* @__PURE__ */ defineStore("points", {
+      state: () => ({
+        points: []
+      }),
+      getters: {
+        getPoints() {
+          return self.points;
+        }
+      },
+      actions: {
+        setPoints(ref2) {
+          this.points = ref2;
+        }
+      }
+    });
+    const _hoisted_1$2 = { class: "keypoints-container" };
+    const _hoisted_2 = { class: "status-indicator" };
+    const _hoisted_3 = { class: "scrollbar-item" };
+    const _hoisted_4 = { style: { "font-size": "large" } };
+    const _sfc_main$6 = {
+      __name: "ReportPanel",
+      setup(__props) {
+        useCssVars((_ctx) => ({
+          "25ef3070": scrollbar_max.value
+        }));
+        const summary_area = ref("");
+        const recording_area = ref("");
+        const prev_recording = ref("");
+        const activeName = ref("first");
+        const scrollbar_max = ref(Math.floor(window.innerHeight * 0.42) + "px");
+        const chosenTest = reactive({
+          testName: ""
+        });
+        const testListStore = useTestListStore();
+        const testListOptions = computed(() => testListStore.testListOptions);
+        const pointsStore = usePointStore();
+        const checkPoints = computed(() => pointsStore.points);
+        const mediaRecordingStore = useMediaRecordingStore();
+        const patientInfoStore = usePatientInfoStore();
+        const updateStatus = ref("Unload");
+        let timer = null;
         function addTest() {
-          console.log(window.localStorage.getItem("testList"));
+          window.api.invoke("renderer-to-main", {
+            name: "create-addcat",
+            event: "event",
+            data: {}
+          });
         }
+        function getStatusClass(required) {
+          return required === "required" ? "red" : required === "done" ? "green" : "yellow";
+        }
+        function getSummaryDescription() {
+          if (recording_area.value != "") return "Waiting for response...";
+          return "Waiting for your speaking";
+        }
+        async function loadPoints() {
+          const points = await window.api.invoke("renderer-to-main-async", {
+            name: "load-points",
+            event: "asyncevent",
+            data: {
+              "teatName": chosenTest.testName
+            }
+          });
+          if ("error" in points) {
+            alert("Load Points File Failed");
+          } else {
+            pointsStore.setPoints(points);
+            if (updateStatus != "Updating") updateStatus.value = "Loaded";
+            updateKeypoints();
+          }
+        }
+        async function summarize() {
+          const points = pointsStore.points;
+          const userText = {
+            "report": recording_area.value,
+            "keypoints": points.reduce((acc, item) => {
+              acc.push({
+                "title": item.title,
+                "importance": item.importance,
+                "explanation": item.explanation
+              });
+              return acc;
+            }, [])
+          };
+          const messages2 = [
+            { "role": "user", "content": JSON.stringify(userText) }
+          ];
+          const res = await window.api.invoke("renderer-to-main-async", {
+            name: "summarize-chat",
+            event: "asyncevent",
+            data: {
+              "apiURL": window.localStorage.getItem("apiURL"),
+              "apiKEY": window.localStorage.getItem("apiKEY"),
+              "request": {
+                model: window.localStorage.getItem("MODEL"),
+                messages: messages2
+              }
+            }
+          });
+          try {
+            const regex = /<json>([\s\S]*?)<\/json>/;
+            const match = res.match(regex);
+            const res_json = JSON.parse(match[1]);
+            return res_json["summary"];
+          } catch (error) {
+            console.error("Parse json failed: ", error);
+          }
+          return "Failed to parse JSON";
+        }
+        async function updateKeypoints() {
+          if (updateStatus.value == "Unload" || updateStatus.value == "Updating" || recording_area.value == "") {
+            return;
+          }
+          updateStatus.value = "Updating";
+          const points = pointsStore.points;
+          const userText = {
+            "report": recording_area.value,
+            "keypoints": points.reduce((acc, item) => {
+              acc.push({
+                "title": item.title,
+                "importance": item.importance,
+                "explanation": item.explanation
+              });
+              return acc;
+            }, [])
+          };
+          const messages2 = [
+            { "role": "user", "content": JSON.stringify(userText) }
+          ];
+          const res = await window.api.invoke("renderer-to-main-async", {
+            name: "updkeys-chat",
+            event: "asyncevent",
+            data: {
+              "apiURL": window.localStorage.getItem("apiURL"),
+              "apiKEY": window.localStorage.getItem("apiKEY"),
+              "request": {
+                model: window.localStorage.getItem("MODEL"),
+                messages: messages2
+              }
+            }
+          });
+          try {
+            const regex = /<json>([\s\S]*?)<\/json>/;
+            const match = res.match(regex);
+            const res_json = JSON.parse(match[1]);
+            pointsStore.setPoints(res_json["key_points"]);
+            updateStatus.value = "Updated";
+          } catch (error) {
+            console.error("Parse json failed: ", error);
+          }
+        }
+        watch(
+          () => mediaRecordingStore.recognizedText,
+          (newVal) => {
+            recording_area.value = prev_recording.value + (newVal || "");
+          }
+        );
+        watch(
+          () => mediaRecordingStore.finishRecording,
+          (newVal) => {
+            if (newVal === true) {
+              prev_recording.value = recording_area.value;
+            }
+          }
+        );
+        watch(
+          () => activeName.value,
+          async (newVal) => {
+            if (newVal === "second" && recording_area.value != "") {
+              const result = await summarize();
+              summary_area.value = result;
+              patientInfoStore.setSummaryContent(result);
+            }
+          }
+        );
+        watch(
+          () => recording_area.value,
+          async (newVal) => {
+            if (mediaRecordingStore.finishRecording == true) {
+              prev_recording.value = newVal;
+            }
+            patientInfoStore.setRawReport(newVal);
+            if (timer) {
+              clearTimeout(timer);
+            }
+            if (newVal != "") {
+              timer = setTimeout(() => {
+                updateKeypoints();
+              }, 2e3);
+            }
+          }
+        );
+        watch(
+          () => summary_area.value,
+          (newVal) => {
+            if (newVal != "") {
+              patientInfoStore.setSummaryContent(newVal);
+            }
+          }
+        );
+        watch(
+          () => patientInfoStore.switchPatient,
+          async (newVal) => {
+            if (newVal) {
+              let readReport = await window.api.invoke("renderer-to-main-async", {
+                name: "load-report",
+                event: "asyncevent",
+                data: {
+                  "patient": patientInfoStore.currentPatient
+                }
+              });
+              const rawReport = readReport.rawReport;
+              recording_area.value = rawReport;
+              patientInfoStore.setSwitchPatient(false);
+            }
+          }
+        );
         return (_ctx, _cache) => {
           const _component_el_row = ElRow;
           const _component_el_option = ElOption;
@@ -24170,6 +27210,7 @@ var require_index_001 = __commonJS({
           const _component_el_button = ElButton;
           const _component_el_form_item = ElFormItem;
           const _component_el_form = ElForm;
+          const _component_el_tooltip = ElTooltip;
           const _component_el_scrollbar = ElScrollbar;
           const _component_el_input = ElInput;
           const _component_el_tab_pane = ElTabPane;
@@ -24188,7 +27229,7 @@ var require_index_001 = __commonJS({
                     default: withCtx(() => [
                       createVNode(_component_el_row, null, {
                         default: withCtx(() => _cache[4] || (_cache[4] = [
-                          createBaseVNode("h1", { style: { "text-align": "left" } }, "Image Catelog Name", -1)
+                          createBaseVNode("h1", { style: { "text-align": "left" } }, "Image Catalog Name", -1)
                         ])),
                         _: 1
                       }),
@@ -24207,11 +27248,12 @@ var require_index_001 = __commonJS({
                                       createVNode(_component_el_select, {
                                         modelValue: chosenTest.testName,
                                         "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => chosenTest.testName = $event),
-                                        id: "testList",
-                                        placeholder: "Please select your test"
+                                        filterable: "",
+                                        placeholder: "Please select",
+                                        onChange: loadPoints
                                       }, {
                                         default: withCtx(() => [
-                                          (openBlock(true), createElementBlock(Fragment, null, renderList(_ctx.testListOptions, (option) => {
+                                          (openBlock(true), createElementBlock(Fragment, null, renderList(testListOptions.value, (option) => {
                                             return openBlock(), createBlock(_component_el_option, {
                                               key: option.key,
                                               label: option.label,
@@ -24263,15 +27305,36 @@ var require_index_001 = __commonJS({
                 class: "report-items style-color-2"
               }, {
                 default: withCtx(() => [
-                  _cache[6] || (_cache[6] = createBaseVNode("h1", { style: { "text-align": "left" } }, "Key Points", -1)),
+                  createBaseVNode("div", _hoisted_1$2, [
+                    _cache[6] || (_cache[6] = createBaseVNode("h1", { class: "keypoints-title" }, "Key Points", -1)),
+                    createBaseVNode("div", _hoisted_2, toDisplayString(updateStatus.value), 1)
+                  ]),
                   createVNode(_component_el_scrollbar, { class: "scrollbar" }, {
                     default: withCtx(() => [
-                      (openBlock(), createElementBlock(Fragment, null, renderList(20, (item) => {
-                        return createBaseVNode("p", {
-                          key: item,
+                      (openBlock(true), createElementBlock(Fragment, null, renderList(checkPoints.value, (point) => {
+                        return openBlock(), createElementBlock("div", {
+                          key: point.title,
                           class: "scrollbar-demo-item"
-                        }, toDisplayString(item), 1);
-                      }), 64))
+                        }, [
+                          createVNode(_component_el_tooltip, {
+                            class: "box-item",
+                            effect: "dark",
+                            content: point.explanation,
+                            placement: "left",
+                            "popper-class": "point-tooltip"
+                          }, {
+                            default: withCtx(() => [
+                              createBaseVNode("div", _hoisted_3, [
+                                createBaseVNode("span", {
+                                  class: normalizeClass(["status-light", getStatusClass(point.importance)])
+                                }, null, 2),
+                                createBaseVNode("span", _hoisted_4, toDisplayString(point.title), 1)
+                              ])
+                            ]),
+                            _: 2
+                          }, 1032, ["content"])
+                        ]);
+                      }), 128))
                     ]),
                     _: 1
                   })
@@ -24296,14 +27359,14 @@ var require_index_001 = __commonJS({
                   }, {
                     default: withCtx(() => [
                       createVNode(_component_el_tab_pane, {
-                        label: "Auto Summary",
+                        label: "Raw Speaking",
                         name: "first",
                         style: { "width": "100%" }
                       }, {
                         default: withCtx(() => [
                           createVNode(_component_el_input, {
-                            modelValue: summary_area.value,
-                            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => summary_area.value = $event),
+                            modelValue: recording_area.value,
+                            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => recording_area.value = $event),
                             type: "textarea",
                             resize: "none",
                             autosize: { minRows: 7, maxRows: 7 },
@@ -24313,19 +27376,19 @@ var require_index_001 = __commonJS({
                         _: 1
                       }),
                       createVNode(_component_el_tab_pane, {
-                        label: "Raw Speaking",
+                        label: "Auto Summary",
                         name: "second",
                         style: { "width": "100%" }
                       }, {
                         default: withCtx(() => [
                           createVNode(_component_el_input, {
-                            modelValue: recording_area.value,
-                            "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => recording_area.value = $event),
+                            modelValue: summary_area.value,
+                            "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => summary_area.value = $event),
                             type: "textarea",
                             resize: "none",
                             autosize: { minRows: 7, maxRows: 7 },
-                            placeholder: "Waiting for your speaking"
-                          }, null, 8, ["modelValue"])
+                            placeholder: getSummaryDescription()
+                          }, null, 8, ["modelValue", "placeholder"])
                         ]),
                         _: 1
                       })
@@ -24341,11 +27404,37 @@ var require_index_001 = __commonJS({
         };
       }
     };
-    const ReportPanel = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["__scopeId", "data-v-31da7229"]]);
-    const _hoisted_1 = { class: "common-layout layout-style" };
-    const _sfc_main$1 = {
+    const ReportPanel = /* @__PURE__ */ _export_sfc$1(_sfc_main$6, [["__scopeId", "data-v-7621519d"]]);
+    const _hoisted_1$1 = { class: "common-layout layout-style" };
+    const _sfc_main$5 = {
       __name: "mainWin",
       setup(__props) {
+        async function updateTestList() {
+          const testList = await window.api.invoke("renderer-to-main-async", {
+            name: "testlist-get",
+            event: "asyncevent",
+            data: {}
+          });
+          const testListStore = useTestListStore();
+          testListStore.setList(testList);
+        }
+        async function fetchConfig() {
+          const _config = await window.api.invoke("renderer-to-main-async", {
+            name: "request-config",
+            event: "asyncevent",
+            data: {}
+          });
+          for (const [key, value] of Object.entries(_config)) {
+            window.localStorage.setItem(key, value);
+          }
+        }
+        updateTestList();
+        fetchConfig();
+        window.api.onMainMessage((data) => {
+          if (data.child === "addcat" && data.action === "closed") {
+            updateTestList();
+          }
+        });
         return (_ctx, _cache) => {
           const _component_el_header = ElHeader;
           const _component_el_col = ElCol;
@@ -24353,7 +27442,7 @@ var require_index_001 = __commonJS({
           const _component_el_main = ElMain;
           const _component_el_footer = ElFooter;
           const _component_el_container = ElContainer;
-          return openBlock(), createElementBlock("div", _hoisted_1, [
+          return openBlock(), createElementBlock("div", _hoisted_1$1, [
             createVNode(_component_el_container, { class: "layout-style" }, {
               default: withCtx(() => [
                 createVNode(_component_el_header, { class: "header style-color-2" }, {
@@ -24371,7 +27460,7 @@ var require_index_001 = __commonJS({
                       default: withCtx(() => [
                         createVNode(_component_el_col, { span: 18 }, {
                           default: withCtx(() => [
-                            createVNode(_sfc_main$3)
+                            createVNode(_sfc_main$7)
                           ]),
                           _: 1
                         }),
@@ -24400,18 +27489,549 @@ var require_index_001 = __commonJS({
         };
       }
     };
-    const mainWindow = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["__scopeId", "data-v-80793b23"]]);
-    const _sfc_main = {};
-    function _sfc_render(_ctx, _cache) {
+    const mainWindow = /* @__PURE__ */ _export_sfc$1(_sfc_main$5, [["__scopeId", "data-v-b4077fea"]]);
+    const _sfc_main$4 = {
+      __name: "configWin",
+      setup(__props) {
+        const configForm = reactive({
+          apiURL: "",
+          apiKEY: "",
+          MODEL: ""
+        });
+        const isLoading = ref(false);
+        const submitForm = () => {
+          window.localStorage.setItem("apiURL", configForm.apiURL);
+          window.localStorage.setItem("apiKEY", configForm.apiKEY);
+          window.localStorage.setItem("MODEL", configForm.MODEL);
+          window.api.invoke("renderer-to-main", {
+            name: "save-config",
+            event: "event",
+            data: {
+              "apiURL": configForm.apiURL,
+              "apiKEY": configForm.apiKEY,
+              "MODEL": configForm.MODEL
+            }
+          });
+          alert("Config Saved");
+        };
+        window.addEventListener("load", () => {
+          configForm.apiURL = window.localStorage.getItem("apiURL");
+          configForm.apiKEY = window.localStorage.getItem("apiKEY");
+          configForm.MODEL = window.localStorage.getItem("MODEL");
+          document.getElementById("apiURL").value = window.localStorage.getItem("apiURL");
+          document.getElementById("apiKEY").value = window.localStorage.getItem("apiKEY");
+          document.getElementById("MODEL").value = window.localStorage.getItem("MODEL");
+        });
+        async function testAPI() {
+          isLoading.value = true;
+          const res = await window.api.invoke("renderer-to-main-async", {
+            name: "test-api",
+            event: "asyncevent",
+            data: {
+              "apiURL": configForm.apiURL,
+              "apiKEY": configForm.apiKEY,
+              "request": {
+                model: configForm.MODEL,
+                messages: [
+                  {
+                    role: "user",
+                    content: "Hi, I'm testing your API. If you can response to this message, please return 'Hi Miaa, I'm {{Your_Model_Name}}. Your API is ok.' with the Your_Model_Name is the name of you."
+                  }
+                ]
+              }
+            }
+          });
+          alert(res);
+          isLoading.value = false;
+        }
+        return (_ctx, _cache) => {
+          const _component_el_input = ElInput;
+          const _component_el_form_item = ElFormItem;
+          const _component_el_button = ElButton;
+          const _component_el_form = ElForm;
+          const _directive_loading = vLoading;
+          return withDirectives((openBlock(), createBlock(_component_el_form, {
+            ref: "configFormTag",
+            model: configForm,
+            class: "configForm"
+          }, {
+            default: withCtx(() => [
+              createVNode(_component_el_form_item, { label: "apiURL" }, {
+                default: withCtx(() => [
+                  createVNode(_component_el_input, {
+                    id: "apiURL",
+                    modelValue: configForm.apiURL,
+                    "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => configForm.apiURL = $event),
+                    autocomplete: "off"
+                  }, null, 8, ["modelValue"])
+                ]),
+                _: 1
+              }),
+              createVNode(_component_el_form_item, { label: "apiKEY" }, {
+                default: withCtx(() => [
+                  createVNode(_component_el_input, {
+                    id: "apiKEY",
+                    modelValue: configForm.apiKEY,
+                    "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => configForm.apiKEY = $event),
+                    autocomplete: "off"
+                  }, null, 8, ["modelValue"])
+                ]),
+                _: 1
+              }),
+              createVNode(_component_el_form_item, { label: "MODEL" }, {
+                default: withCtx(() => [
+                  createVNode(_component_el_input, {
+                    id: "MODEL",
+                    modelValue: configForm.MODEL,
+                    "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => configForm.MODEL = $event),
+                    autocomplete: "off"
+                  }, null, 8, ["modelValue"])
+                ]),
+                _: 1
+              }),
+              createVNode(_component_el_form_item, null, {
+                default: withCtx(() => [
+                  createVNode(_component_el_button, {
+                    type: "default",
+                    onClick: _cache[3] || (_cache[3] = ($event) => submitForm())
+                  }, {
+                    default: withCtx(() => _cache[5] || (_cache[5] = [
+                      createTextVNode(" Save ")
+                    ])),
+                    _: 1
+                  }),
+                  createVNode(_component_el_button, {
+                    type: "default",
+                    onClick: _cache[4] || (_cache[4] = ($event) => testAPI())
+                  }, {
+                    default: withCtx(() => _cache[6] || (_cache[6] = [
+                      createTextVNode(" Test API ")
+                    ])),
+                    _: 1
+                  })
+                ]),
+                _: 1
+              })
+            ]),
+            _: 1
+          }, 8, ["model"])), [
+            [_directive_loading, isLoading.value]
+          ]);
+        };
+      }
+    };
+    const configWindow = /* @__PURE__ */ _export_sfc$1(_sfc_main$4, [["__scopeId", "data-v-38ac2f51"]]);
+    const useCatlogAddingStore = /* @__PURE__ */ defineStore("catlogAdding", {
+      state: () => ({
+        points: []
+      }),
+      getters: {
+        getPointList() {
+          return self.points;
+        }
+      },
+      actions: {
+        getLength() {
+          return this.points.length;
+        },
+        setList(ref2) {
+          this.points = ref2;
+        }
+      }
+    });
+    const _sfc_main$3 = {
+      setup() {
+        const messages2 = ref([
+          { role: "assistant", text: "Hi, I'm Miaa! Your AI Assistant helping you generate medical image description. Now I could help you generate a new set of key-points that meet your requirement of a specific medical image catalog, please let me know the catalog of the medical image." }
+        ]);
+        const userInput = ref("");
+        const CatlogAddingStore = useCatlogAddingStore();
+        const sendMessage = async () => {
+          if (!userInput.value.trim()) return;
+          messages2.value.push({ role: "user", text: userInput.value });
+          userInput.value;
+          userInput.value = "";
+          await nextTick();
+          scrollToBottom();
+          messages2.value.push({ role: "assistant", text: "Waiting..." });
+          nextTick().then(scrollToBottom);
+          const res = await window.api.invoke("renderer-to-main-async", {
+            name: "addcat-chat",
+            event: "asyncevent",
+            data: {
+              "apiURL": window.localStorage.getItem("apiURL"),
+              "apiKEY": window.localStorage.getItem("apiKEY"),
+              "request": {
+                model: window.localStorage.getItem("MODEL"),
+                messages: messages2.value.reduce((acc, item) => {
+                  acc.push({
+                    "role": item.role,
+                    "content": item.text
+                  });
+                  return acc;
+                }, [])
+              }
+            }
+          });
+          messages2.value.pop();
+          nextTick().then(scrollToBottom);
+          try {
+            const regex = /<json>([\s\S]*?)<\/json>/;
+            const match = res.match(regex);
+            const res_json = JSON.parse(match[1]);
+            CatlogAddingStore.setList(res_json["key_points"]);
+            if ("massage" in res_json) {
+              messages2.value.push({ role: "assistant", text: res_json["massage"] });
+            } else {
+              messages2.value.push({ role: "assistant", text: "I have done the work, let me show you the key points below." });
+            }
+          } catch {
+            messages2.value.push({ role: "assistant", text: res });
+          }
+          nextTick().then(scrollToBottom);
+        };
+        const scrollToBottom = () => {
+          const chatContainer = document.querySelector(".chat-container");
+          if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+        };
+        return { messages: messages2, userInput, sendMessage, scrollToBottom };
+      }
+    };
+    const _hoisted_1 = { class: "chat-container" };
+    function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+      const _component_el_col = ElCol;
       const _component_el_row = ElRow;
-      return openBlock(), createBlock(_component_el_row, null, {
-        default: withCtx(() => _cache[0] || (_cache[0] = [
-          createBaseVNode("span", { style: { "color": "black" } }, "test", -1)
-        ])),
+      const _component_el_button = ElButton;
+      const _component_el_input = ElInput;
+      return openBlock(), createBlock(_component_el_col, {
+        span: 22,
+        justify: "center",
+        class: "style-color-3 chat-panel"
+      }, {
+        default: withCtx(() => [
+          createVNode(_component_el_row, {
+            span: 24,
+            justify: "center"
+          }, {
+            default: withCtx(() => [
+              createVNode(_component_el_col, { span: 22 }, {
+                default: withCtx(() => [
+                  createBaseVNode("div", _hoisted_1, [
+                    (openBlock(true), createElementBlock(Fragment, null, renderList($setup.messages, (message, index) => {
+                      return openBlock(), createElementBlock("div", {
+                        key: index,
+                        class: normalizeClass(["message", message.role])
+                      }, toDisplayString(message.text), 3);
+                    }), 128))
+                  ])
+                ]),
+                _: 1
+              })
+            ]),
+            _: 1
+          }),
+          createVNode(_component_el_row, {
+            span: 24,
+            justify: "center"
+          }, {
+            default: withCtx(() => [
+              createVNode(_component_el_col, { span: 20 }, {
+                default: withCtx(() => [
+                  createVNode(_component_el_input, {
+                    modelValue: $setup.userInput,
+                    "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.userInput = $event),
+                    placeholder: "Type a message...",
+                    onKeyup: withKeys($setup.sendMessage, ["enter"]),
+                    size: "large"
+                  }, {
+                    append: withCtx(() => [
+                      createVNode(_component_el_button, {
+                        onClick: $setup.sendMessage,
+                        round: ""
+                      }, {
+                        default: withCtx(() => _cache[1] || (_cache[1] = [
+                          createTextVNode("Send")
+                        ])),
+                        _: 1
+                      }, 8, ["onClick"])
+                    ]),
+                    _: 1
+                  }, 8, ["modelValue", "onKeyup"])
+                ]),
+                _: 1
+              })
+            ]),
+            _: 1
+          }),
+          createVNode(_component_el_row, {
+            span: 24,
+            style: { "height": "10px" }
+          })
+        ]),
         _: 1
       });
     }
-    const configWindow = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render]]);
+    const ChatAssis = /* @__PURE__ */ _export_sfc$1(_sfc_main$3, [["render", _sfc_render$1]]);
+    const _sfc_main$2 = {
+      setup() {
+        const cataddStore = useCatlogAddingStore();
+        const itemList = computed(() => cataddStore.points);
+        const dialogVisible = ref(false);
+        const nameInput = ref("");
+        const doneVisble = ref(false);
+        const openDialog = () => {
+          dialogVisible.value = true;
+        };
+        const addItem = () => {
+          itemList.value.push({ name: "", importance: "optional", description: "" });
+        };
+        const removeItem = (index) => {
+          itemList.value.splice(index, 1);
+        };
+        const saveList = () => {
+          window.api.invoke("renderer-to-main", {
+            name: "save-points",
+            event: "cevent",
+            data: {
+              "name": nameInput.value,
+              "points": JSON.stringify(itemList.value, null, 2)
+            }
+          });
+          doneVisble.value = true;
+          dialogVisible.value = false;
+          setTimeout(() => {
+            doneVisble.value = false;
+          }, 2e3);
+        };
+        return { itemList, cataddStore, dialogVisible, nameInput, doneVisble, addItem, removeItem, saveList, openDialog };
+      },
+      computed: {
+        isEmpty() {
+          return this.cataddStore.getLength() === 0;
+        }
+      }
+    };
+    function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+      const _component_el_input = ElInput;
+      const _component_el_button = ElButton;
+      const _component_el_dialog = ElDialog;
+      const _component_el_col = ElCol;
+      const _component_el_alert = ElAlert;
+      const _component_el_radio = ElRadio;
+      const _component_el_radio_group = ElRadioGroup;
+      const _component_el_row = ElRow;
+      return openBlock(), createElementBlock(Fragment, null, [
+        createVNode(_component_el_dialog, {
+          modelValue: $setup.dialogVisible,
+          "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.dialogVisible = $event),
+          title: "Enter Name"
+        }, {
+          footer: withCtx(() => [
+            createVNode(_component_el_button, {
+              onClick: _cache[1] || (_cache[1] = ($event) => $setup.dialogVisible = false)
+            }, {
+              default: withCtx(() => _cache[3] || (_cache[3] = [
+                createTextVNode("Cancel")
+              ])),
+              _: 1
+            }),
+            createVNode(_component_el_button, {
+              type: "primary",
+              onClick: $setup.saveList
+            }, {
+              default: withCtx(() => _cache[4] || (_cache[4] = [
+                createTextVNode("Save")
+              ])),
+              _: 1
+            }, 8, ["onClick"])
+          ]),
+          default: withCtx(() => [
+            createVNode(_component_el_input, {
+              modelValue: $setup.nameInput,
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.nameInput = $event),
+              placeholder: "Enter the name of new catalog"
+            }, null, 8, ["modelValue"])
+          ]),
+          _: 1
+        }, 8, ["modelValue"]),
+        createVNode(_component_el_col, {
+          span: 22,
+          class: "style-color-2 points-panel"
+        }, {
+          default: withCtx(() => [
+            createVNode(_component_el_row, {
+              span: 22,
+              justify: "center",
+              class: "list-container"
+            }, {
+              default: withCtx(() => [
+                createVNode(_component_el_col, { span: 24 }, {
+                  default: withCtx(() => [
+                    withDirectives(createVNode(_component_el_col, null, {
+                      default: withCtx(() => _cache[5] || (_cache[5] = [
+                        createBaseVNode("h1", null, "Chat with Miaa to help you generate the key points.", -1)
+                      ])),
+                      _: 1
+                    }, 512), [
+                      [vShow, $options.isEmpty]
+                    ]),
+                    withDirectives(createVNode(_component_el_alert, {
+                      title: "Successfully saved",
+                      type: "success",
+                      description: "More text description",
+                      "show-icon": ""
+                    }, null, 512), [
+                      [vShow, $setup.doneVisble]
+                    ]),
+                    (openBlock(true), createElementBlock(Fragment, null, renderList($setup.itemList, (item, index) => {
+                      return openBlock(), createBlock(_component_el_col, {
+                        key: index,
+                        class: "list-item"
+                      }, {
+                        default: withCtx(() => [
+                          createVNode(_component_el_input, {
+                            modelValue: item.title,
+                            "onUpdate:modelValue": ($event) => item.title = $event,
+                            style: { "width": "22%" },
+                            placeholder: "Enter name"
+                          }, null, 8, ["modelValue", "onUpdate:modelValue"]),
+                          createVNode(_component_el_radio_group, {
+                            modelValue: item.importance,
+                            "onUpdate:modelValue": ($event) => item.importance = $event,
+                            style: { "width": "22%", "background-color": "white", "padding": "0px 10px 0px 10px", "align-content": "center", "border-radius": "2px" }
+                          }, {
+                            default: withCtx(() => [
+                              createVNode(_component_el_radio, { value: "required" }, {
+                                default: withCtx(() => _cache[6] || (_cache[6] = [
+                                  createTextVNode("Required")
+                                ])),
+                                _: 1
+                              }),
+                              createVNode(_component_el_radio, { value: "optional" }, {
+                                default: withCtx(() => _cache[7] || (_cache[7] = [
+                                  createTextVNode("Optional")
+                                ])),
+                                _: 1
+                              })
+                            ]),
+                            _: 2
+                          }, 1032, ["modelValue", "onUpdate:modelValue"]),
+                          createVNode(_component_el_input, {
+                            modelValue: item.explanation,
+                            "onUpdate:modelValue": ($event) => item.explanation = $event,
+                            type: "textarea",
+                            rows: "1",
+                            resize: "none",
+                            style: { "width": "56%" },
+                            placeholder: "Enter description"
+                          }, null, 8, ["modelValue", "onUpdate:modelValue"]),
+                          createVNode(_component_el_button, {
+                            type: "danger",
+                            onClick: ($event) => $setup.removeItem(index)
+                          }, {
+                            default: withCtx(() => _cache[8] || (_cache[8] = [
+                              createTextVNode("Delete")
+                            ])),
+                            _: 2
+                          }, 1032, ["onClick"])
+                        ]),
+                        _: 2
+                      }, 1024);
+                    }), 128))
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            }),
+            createVNode(_component_el_row, {
+              span: 24,
+              justify: "end",
+              style: { "margin": "10px" }
+            }, {
+              default: withCtx(() => [
+                createVNode(_component_el_col, { span: 3 }, {
+                  default: withCtx(() => [
+                    createVNode(_component_el_button, {
+                      type: "primary",
+                      onClick: $setup.addItem
+                    }, {
+                      default: withCtx(() => _cache[9] || (_cache[9] = [
+                        createTextVNode("+ Add Item")
+                      ])),
+                      _: 1
+                    }, 8, ["onClick"])
+                  ]),
+                  _: 1
+                }),
+                createVNode(_component_el_col, { span: 3 }, {
+                  default: withCtx(() => [
+                    createVNode(_component_el_button, {
+                      type: "success",
+                      onClick: $setup.openDialog
+                    }, {
+                      default: withCtx(() => _cache[10] || (_cache[10] = [
+                        createTextVNode("Save List")
+                      ])),
+                      _: 1
+                    }, 8, ["onClick"])
+                  ]),
+                  _: 1
+                })
+              ]),
+              _: 1
+            })
+          ]),
+          _: 1
+        })
+      ], 64);
+    }
+    const PointsTable = /* @__PURE__ */ _export_sfc$1(_sfc_main$2, [["render", _sfc_render]]);
+    const _sfc_main$1 = {
+      __name: "CatlogAdding",
+      setup(__props) {
+        return (_ctx, _cache) => {
+          const _component_el_row = ElRow;
+          const _component_el_col = ElCol;
+          return openBlock(), createBlock(_component_el_col, {
+            span: 24,
+            class: "style-color-1"
+          }, {
+            default: withCtx(() => [
+              createVNode(_component_el_row, {
+                span: 24,
+                justify: "center"
+              }, {
+                default: withCtx(() => [
+                  createVNode(ChatAssis)
+                ]),
+                _: 1
+              }),
+              createVNode(_component_el_row, {
+                span: 24,
+                justify: "center"
+              }, {
+                default: withCtx(() => [
+                  createVNode(PointsTable)
+                ]),
+                _: 1
+              })
+            ]),
+            _: 1
+          });
+        };
+      }
+    };
+    const _sfc_main = {
+      __name: "addCatWin",
+      setup(__props) {
+        return (_ctx, _cache) => {
+          return openBlock(), createBlock(_sfc_main$1);
+        };
+      }
+    };
     const routes = [
       {
         path: "/",
@@ -24423,13 +28043,27 @@ var require_index_001 = __commonJS({
         // Route for child window
         name: "Config",
         component: configWindow
+      },
+      {
+        path: "/addcat",
+        // Route for child window
+        name: "AddCat",
+        component: _sfc_main
       }
     ];
     const router = createRouter({
       history: createWebHashHistory(),
       routes
     });
-    const app = createApp(_sfc_main$E);
+    window.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && (e.key === "z" || e.key === "Z" || e.key === "y" || e.key === "Y")) {
+        const active = document.activeElement;
+        if (!active || active.tagName.toLowerCase() !== "textarea") {
+          e.preventDefault();
+        }
+      }
+    });
+    const app = createApp(App);
     app.use(router);
     app.use(createPinia());
     app.mount("#app");

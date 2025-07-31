@@ -454,34 +454,10 @@ export default {
                 </div>
             </el-col>
         </el-row>
-        <el-row :span="24" justify="center">
-            <el-col :span="20">
-                <el-button-group class="btn-group">
-                    <el-button type="default" size="large" round @click.prevent="loadPreviousImage()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                            class="bi bi-arrow-left-square" viewBox="0 0 16 16" style="margin: 3px">
-                            <path fill-rule="evenodd"
-                                d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm11.5 5.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5z" />
-                        </svg>
-                        <span>Previous</span>
-                    </el-button>
-                    <input
-                        ref="fileInput"
-                        type="file"
-                        webkitdirectory
-                        directory
-                        @change="setImage"
-                        style="display: none;"
-                    >
-                    <el-button type="default" size="large" round @click.prevent="$refs.fileInput.click()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                            class="bi bi-folder" viewBox="0 0 16 16" style="margin: 3px">
-                            <path
-                                d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a2 2 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139q.323-.119.684-.12h5.396z" />
-                        </svg>
-                        <span>Import</span>
-                    </el-button>
-                    <el-button type="default" size="large" round class="speaking-btn" @mousedown="toggleRecording" @mouseup="toggleRecording">
+        <el-row :span="24" >
+            <el-col :span="4">
+                <el-button class="record-button" @mousedown="toggleRecording" @mouseup="toggleRecording">
+                    <div class="button-content">
                         <span v-if="this.getBtnText() === 'PressSpeaking'" style="display: inline-flex; align-items: center;">
                             <span>Press</span>
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
@@ -495,48 +471,96 @@ export default {
                         <span v-else>
                             <span>{{ getBtnText() }}</span>
                         </span>
-                    </el-button>
-                    <el-button type="default" size="large" round @click.prevent="exportImage()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                            class="bi bi-file-earmark-richtext" viewBox="0 0 16 16" style="margin: 3px">
-                            <path
-                                d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z" />
-                            <path
-                                d="M4.5 12.5A.5.5 0 0 1 5 12h3a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m0-2A.5.5 0 0 1 5 10h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m1.639-3.708 1.33.886 1.854-1.855a.25.25 0 0 1 .289-.047l1.888.974V8.5a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V8s1.54-1.274 1.639-1.208M6.25 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" />
-                        </svg>
-                        <span>Export</span>
-                    </el-button>
-                    <el-button type="default" size="large" round @click.prevent="loadNextImage()">
-                        <span>Next</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
-                            class="bi bi-arrow-right-square" viewBox="0 0 16 16" style="margin: 3px">
-                            <path fill-rule="evenodd"
-                                d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm4.5 5.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z" />
-                        </svg>
-                    </el-button>
-                </el-button-group>
+                    </div>
+                </el-button>
             </el-col>
-        </el-row>
-        <el-row :span="24" style="margin-top: 10px;">
             <el-col :span="20">
-                <el-row style="font-size: 14px;">1. Press Import Button to Select the medical image folder.</el-row>
-                <el-row style="font-size: 14px;">2. Press Previous/Next Button to move forward/backward in the medical
-                    image list.</el-row>
-                <el-row style="font-size: 14px;">3. Press Export Button to generate PDF report.</el-row>
-                <el-row style="font-size: 14px;">4. Labeled Image will saved automatically.</el-row>
-            </el-col>
-            <el-col :span="4">
-                <el-row :span="24" justify="end" style="padding: 10px;">
-                    <el-button size="large" style="height: 60px; width: 60px;" round @click="openConfigWin()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor"
-                            class="bi bi-gear" viewBox="0 0 16 16">
-                            <path
-                                d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0" />
-                            <path
-                                d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z" />
-                        </svg>
-                    </el-button>
+                <el-row :span="24" justify="center">
+                    <el-col :span="22">
+                        <el-button-group class="btn-group">
+                            <el-button type="default" size="large" round @click.prevent="loadPreviousImage()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                                    class="bi bi-arrow-left-square" viewBox="0 0 16 16" style="margin: 3px">
+                                    <path fill-rule="evenodd"
+                                        d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm11.5 5.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5z" />
+                                </svg>
+                                <span>Previous</span>
+                            </el-button>
+                            <input
+                                ref="fileInput"
+                                type="file"
+                                webkitdirectory
+                                directory
+                                @change="setImage"
+                                style="display: none;"
+                            >
+                            <el-button type="default" size="large" round @click.prevent="$refs.fileInput.click()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                                    class="bi bi-folder" viewBox="0 0 16 16" style="margin: 3px">
+                                    <path
+                                        d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a2 2 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139q.323-.119.684-.12h5.396z" />
+                                </svg>
+                                <span>Import</span>
+                            </el-button>
+                            <!-- <el-button type="default" size="large" round class="speaking-btn" @mousedown="toggleRecording" @mouseup="toggleRecording">
+                                <span v-if="this.getBtnText() === 'PressSpeaking'" style="display: inline-flex; align-items: center;">
+                                    <span>Press</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                                        class="bi bi-play-circle" viewBox="0 0 16 16" style="margin: 3px">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16" />
+                                        <path
+                                            d="M6.271 5.055a.5.5 0 0 1 .52.038l3.5 2.5a.5.5 0 0 1 0 .814l-3.5 2.5A.5.5 0 0 1 6 10.5v-5a.5.5 0 0 1 .271-.445" />
+                                    </svg>
+                                    <span>Speaking</span>
+                                </span>
+                                <span v-else>
+                                    <span>{{ getBtnText() }}</span>
+                                </span>
+                            </el-button> -->
+                            <el-button type="default" size="large" round @click.prevent="exportImage()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                                    class="bi bi-file-earmark-richtext" viewBox="0 0 16 16" style="margin: 3px">
+                                    <path
+                                        d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z" />
+                                    <path
+                                        d="M4.5 12.5A.5.5 0 0 1 5 12h3a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m0-2A.5.5 0 0 1 5 10h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5m1.639-3.708 1.33.886 1.854-1.855a.25.25 0 0 1 .289-.047l1.888.974V8.5a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V8s1.54-1.274 1.639-1.208M6.25 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" />
+                                </svg>
+                                <span>Export</span>
+                            </el-button>
+                            <el-button type="default" size="large" round @click.prevent="loadNextImage()">
+                                <span>Next</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor"
+                                    class="bi bi-arrow-right-square" viewBox="0 0 16 16" style="margin: 3px">
+                                    <path fill-rule="evenodd"
+                                        d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm4.5 5.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5z" />
+                                </svg>
+                            </el-button>
+                        </el-button-group>
+                    </el-col>
                 </el-row>
+                <el-row :span="24" style="margin-top: 10px;">
+                    <el-col :span="20" >
+                        <el-row style="font-size: 14px;">1. Press Import Button to Select the medical image folder.</el-row>
+                        <el-row style="font-size: 14px;">2. Press Previous/Next Button to move forward/backward in the medical
+                            image list.</el-row>
+                        <el-row style="font-size: 14px;">3. Press Export Button to generate PDF report.</el-row>
+                        <el-row style="font-size: 14px;">4. Labeled Image will saved automatically.</el-row>
+                    </el-col>
+                    <el-col :span="4">
+                        <el-row :span="24" justify="end" style="padding: 10px;">
+                            <el-button size="large" style="height: 60px; width: 60px;" round @click="openConfigWin()">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor"
+                                    class="bi bi-gear" viewBox="0 0 16 16">
+                                    <path
+                                        d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492M5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0" />
+                                    <path
+                                        d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115z" />
+                                </svg>
+                            </el-button>
+                        </el-row>
+                    </el-col>
+                </el-row>
+                
             </el-col>
         </el-row>
     </el-col>
@@ -607,17 +631,30 @@ button:focus-visible {
     outline: 4px auto -webkit-focus-ring-color;
 }
 
-.speaking-btn {
-    width: 40% !important;
-}
-
 .btn-group {
     margin-top: 20px;
     width: 100%;
 }
 
+.record-button {
+  margin:13%;
+  height: auto !important;
+  width: 70% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 16px !important;
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 8px; /* Add controlled padding inside */
+}
+
 .btn-group .el-button {
-    width: 15%;
+    width: 25%;
     font-size: 1.5em;
     font-weight: 500;
     font-family: inherit;
