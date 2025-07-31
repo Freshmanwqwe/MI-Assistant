@@ -7,12 +7,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
-    AudioRecorder: typeof import('./src/components/AudioRecorder.vue')['default']
     CatlogAdding: typeof import('./src/components/CatlogAdding.vue')['default']
     ChatAssis: typeof import('./src/components/CatlogAdding/ChatAssis.vue')['default']
     ControlPanle: typeof import('./src/components/DrawingPanel/ControlPanle.vue')['default']
-    ControlPanle_: typeof import('./src/components/DrawingPanel/ControlPanle_.vue')['default']
-    ControlPanle_backup: typeof import('./src/components/DrawingPanel/ControlPanle_backup.vue')['default']
     DrawingPanel: typeof import('./src/components/DrawingPanel.vue')['default']
     DrawPanel: typeof import('./src/components/DrawingPanel/DrawPanel.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']

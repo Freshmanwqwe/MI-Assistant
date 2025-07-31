@@ -1,4 +1,5 @@
 import { configPath} from '../main';
+import { ensureHistoryFile, ensureReportFile } from '../utils';
 
 const fs = require('fs');
 const path = require('path');
@@ -49,8 +50,9 @@ export async function saveConfig(config) {
   }
 }
 
-export async function loadHistory() {
-  const history_file = path.join(configPath, "history.json")
+export async function loadHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, 'info/'+data.patient+'/history.json')
   try {
     if (!fs.existsSync(history_file)) {
         console.warn('History file not found:', history_file);
@@ -68,14 +70,45 @@ export async function loadHistory() {
   }
 }
 
-export async function saveHistory(history) {
-  const history_file = path.join(configPath, 'history.json');
+export async function saveHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, 'info/'+data.patient+'/history.json');
   try {
-    const historyContent = JSON.stringify(history);
-    // console.log(historyContent);
+    const historyContent = JSON.stringify(data.history);
     fs.writeFileSync(history_file, historyContent, 'utf-8');
   } catch (error) {
     console.error('Error ensuring history file:', error);
+  }
+}
+
+export async function loadReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, 'info/'+data.patient+'/report.json')
+  try {
+    if (!fs.existsSync(report_file)) {
+        console.warn('Report file not found:', report_file);
+        return {};
+    }
+    
+    // Read and parse the JSON file
+    const reportContent = fs.readFileSync(report_file, 'utf-8');
+    const report = JSON.parse(reportContent);
+
+    return report;
+  } catch (error) {
+      console.error('Error loading report:', error);
+      return {};
+  }
+}
+
+export async function saveReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, 'info/'+data.patient+'/report.json');
+  try {
+    const reportContent = JSON.stringify((data.report));
+    fs.writeFileSync(report_file, reportContent, 'utf-8');
+  } catch (error) {
+    console.error('Error ensuring report file:', error);
   }
 }
 

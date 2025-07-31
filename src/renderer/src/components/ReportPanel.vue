@@ -6,6 +6,7 @@ import 'element-plus/theme-chalk/display.css'
 import { useTestListStore, usePointStore } from '@store/index'
 
 import { useMediaRecordingStore } from '@store/mediaRecordingStore'
+import usePatientInfoStore from '@store/patientInfoStore'
 
 const summary_area = ref("")
 const recording_area = ref("")
@@ -23,6 +24,8 @@ const pointsStore = usePointStore();
 const checkPoints = computed(() => pointsStore.points);
 
 const mediaRecordingStore = useMediaRecordingStore()
+
+const patientInfoStore = usePatientInfoStore();
 
 const updateStatus = ref('Unload')
 
@@ -174,6 +177,7 @@ watch(
         if (newVal === 'second' && recording_area.value != "") {
             const result = await summarize();
             summary_area.value = result;
+            patientInfoStore.setSummaryContent(result);
         }
     }
 )
@@ -184,6 +188,7 @@ watch(
         if (mediaRecordingStore.finishRecording == true) {
             prev_recording.value = newVal;
         }
+        patientInfoStore.setRawReport(newVal);
         if (timer) {
             clearTimeout(timer);
         }
@@ -191,6 +196,33 @@ watch(
             timer = setTimeout(() => {
                 updateKeypoints();
             }, 2000);
+        }
+    }
+)
+
+watch(
+    () => summary_area.value,
+    (newVal) => {
+        if (newVal != "") {
+            patientInfoStore.setSummaryContent(newVal);
+        }
+    }
+)
+
+watch(
+    () => patientInfoStore.switchPatient,
+    async (newVal) => {
+        if (newVal) {
+            let readReport = await window.api.invoke('renderer-to-main-async', {
+                name: "load-report",
+                event: "asyncevent",
+                data: {
+                    'patient': patientInfoStore.currentPatient,
+                }
+            });
+            const rawReport = readReport.rawReport;
+            recording_area.value = rawReport;
+            patientInfoStore.setSwitchPatient(false);
         }
     }
 )
@@ -250,12 +282,22 @@ watch(
         <el-row :span="24" class="report-summary style-color-2">
             <el-tabs v-model="activeName" class="demo-tabs" type="border-card">
                 <el-tab-pane label="Raw Speaking" name="first" style="width: 100%;">
-                    <el-input v-model="recording_area" type="textarea" resize="none"
-                        :autosize="{ minRows: 7, maxRows: 7 }" placeholder="Waiting for your speaking" />
+                    <el-input
+                        v-model="recording_area"
+                        type="textarea"
+                        resize="none"
+                        :autosize="{ minRows: 7, maxRows: 7 }"
+                        placeholder="Waiting for your speaking"
+                    />
                 </el-tab-pane>
                 <el-tab-pane label="Auto Summary" name="second" style="width: 100%;">
-                    <el-input v-model="summary_area" type="textarea" resize="none"
-                        :autosize="{ minRows: 7, maxRows: 7 }" :placeholder=getSummaryDescription() />
+                    <el-input 
+                        v-model="summary_area"
+                        type="textarea"
+                        resize="none"
+                        :autosize="{ minRows: 7, maxRows: 7 }"
+                        :placeholder=getSummaryDescription()
+                    />
                 </el-tab-pane>
             </el-tabs>
         </el-row>
