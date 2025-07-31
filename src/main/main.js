@@ -18,7 +18,7 @@ function initRunning () {
   createFolder(configPath);
   createFolder(join(configPath, 'test_configs'));
   ensureConfigFile();
-  ensureHistoryFile();
+  ensureHistoryFile("blank");
 }
 
 function createWindow() {

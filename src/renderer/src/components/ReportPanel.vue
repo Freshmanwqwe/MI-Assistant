@@ -67,7 +67,7 @@ async function loadPoints() {
     }
     else {
         pointsStore.setPoints(points);
-        updateStatus.value = 'Loaded';
+        if (updateStatus != 'Updating') updateStatus.value = 'Loaded';
         updateKeypoints();
     }
 }
@@ -114,7 +114,7 @@ async function summarize() {
 }
 
 async function updateKeypoints() {
-    if (updateStatus.value == "Unload") {return ;}
+    if (updateStatus.value == "Unload" || updateStatus.value == "Updating" || recording_area.value == "") {return ;}
     updateStatus.value = 'Updating';
     const points = pointsStore.points;
     const userText = {
