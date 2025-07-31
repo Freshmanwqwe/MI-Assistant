@@ -48,7 +48,14 @@ export function createAddCatWindow () {
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
         addCatWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + "#/addcat")
     } else {
-        addCatWindow.loadFile(resolve(join(__dirname, '../renderer/index.html#/addcat')))
+        // addCatWindow.loadFile(resolve(join(__dirname, '../renderer/index.html#/addcat')))
+        addCatWindow.loadFile(path.resolve(path.join(__dirname, '../renderer/index.html')))
+        .then(() => {
+            // Navigate to the hash route after the file loads
+            addCatWindow.webContents.executeJavaScript(`
+                window.location.hash = '#/addcat';
+            `);
+        });
     }
 
     existedWindows.set("addcat", addCatWindow)
