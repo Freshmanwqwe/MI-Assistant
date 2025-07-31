@@ -1,5 +1,5 @@
 import EventRouter from "./EventRouter";
-import { loadExistedTestList, loadConfig, saveConfig, loadHistory, saveHistory, savePoints, loadPoints} from '../Functions/local.store'
+import { loadExistedTestList, loadConfig, saveConfig, loadHistory, saveHistory, savePoints, loadPoints, saveReport, loadReport } from '../Functions/local.store'
 import { testAPI, AddCatChat, Summarize, Updkeys } from '../Functions/llm'
 import { createConfigWindow } from '../configView'
 import { createAddCatWindow } from "../addCatView";
@@ -82,7 +82,7 @@ routers.push(
         'load-history',
         'asyncevent',
         async (api, data={}) =>  {
-            const history = await loadHistory();
+            const history = await loadHistory(data.data);
             return history;
         }
     )
@@ -95,6 +95,29 @@ routers.push(
         'event',
         (api, data) => {
             saveHistory(data.data);
+        }
+    )
+)
+
+
+routers.push(
+    new EventRouter(
+        'load-report',
+        'asyncevent',
+        async (api, data={}) =>  {
+            const report = await loadReport(data.data);
+            return report;
+        }
+    )
+)
+
+
+routers.push(
+    new EventRouter(
+        'save-report',
+        'event',
+        (api, data) => {
+            saveReport(data.data);
         }
     )
 )

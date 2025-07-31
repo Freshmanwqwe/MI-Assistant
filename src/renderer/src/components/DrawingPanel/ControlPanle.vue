@@ -1,6 +1,7 @@
 <script>
 import useDrawPanelStore from '@store/drawPanelStore';
 import { useMediaRecordingStore } from '@store/mediaRecordingStore';
+import usePatientInfoStore from '@store/patientInfoStore';
 
 function debounce(func, wait) {
     let timeout;
@@ -38,6 +39,8 @@ export default {
     },
     mounted() {
         const canvasStore = useDrawPanelStore();
+        this.mediaRecordingStore = useMediaRecordingStore();
+        this.patientInfoStore = usePatientInfoStore();
         // const canvasRef = canvasStore.canvasRef;
         this.canvasStore = canvasStore;
         this.canvas = canvasStore.canvasRef;
@@ -48,7 +51,6 @@ export default {
         this.APIKey = '8b82b9730a2c117f3deccc41ee7dd2c4';
         this.APISecret = 'Mzg5OWNmNDMxODk5MDNiMzIyNWZmMDdm';
         this.APPID = '8301bc30';
-        this.mediaRecordingStore = useMediaRecordingStore();
         this.chunks = [];
 
         // 录音相关初始化
@@ -63,11 +65,16 @@ export default {
         }
         document.head.appendChild(script);
 
+        this.spaceDown = false;
+
 
 
         const hidebtn = document.getElementById("hidebtn");
         hidebtn.addEventListener("mousedown", this.hideStroke);
         hidebtn.addEventListener("mouseup", this.showStroke);
+
+        window.addEventListener('keydown', this.handleKeyDown);
+        window.addEventListener('keyup', this.handleKeyUp);
     },
     destroyed() {
         const hidebtn = document.getElementById("hidebtn");
@@ -287,19 +294,25 @@ export default {
             }
         },
         setImage(event) {
-            this.canvasBackgroundImages = [];
             const files = Array.from(event.target.files);
+            if (!files.length) return;
+            this.canvasBackgroundImages = [];
+
+            const folderName = files[0].webkitRelativePath?.split('/')[0] || "未知文件夹";
+            this.patientInfoStore.setCurrentPatient(folderName);
+
             const imgFiles = files.filter(file => file.type.startsWith('image/'));
             let URL = window.URL;
             for (let i = 0; i < imgFiles.length; ++i) {
                 const file = URL.createObjectURL(imgFiles[i]);
                 this.canvasBackgroundImages.push(file);
             }
-            this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[0]);
+            console.log("pre:", this.patientInfoStore.switchPatient);
+            this.patientInfoStore.setSwitchPatient(true);
+            console.log("after:", this.patientInfoStore.switchPatient);
             this.canvasStore.setCanvasBackgroundID(0);
+            this.canvasStore.setCanvasBackground(this.canvasBackgroundImages[0]);
             this.canvasBackgroundId = 0;
-            this.clearHistoryFile();
-            this.canvas.reset();
         },
         _loadPreviousImage() {
             if (this.canvasBackgroundId - 1 < 0) return;
@@ -340,15 +353,25 @@ export default {
             link.download = "image.png";
             link.click();
         },
-        clearHistoryFile() {
-            window.api.invoke('renderer-to-main', {
-                name: "save-history",
-                event: "cevent",
-                data:{
-                    'history': {},
+        handleKeyDown(event) {
+            const active = document.activeElement
+            if (active && active.tagName.toLowerCase() === 'textarea') return;
+            if (event.key === ' ' || event.key === 'Spacebar') {
+                event.preventDefault();
+                if (!this.spaceDown) {
+                    this.spaceDown = true;
+                    this.toggleRecording();
                 }
-            });
+            }
         },
+        handleKeyUp(event) {
+            const active = document.activeElement
+            if (active && active.tagName.toLowerCase() === 'textarea') return;
+            if ((event.key === ' ' || event.key === 'Spacebar') && this.spaceDown) {
+                this.spaceDown = false;
+                this.toggleRecording();
+            }
+        }
     }
 };
 </script>
@@ -427,7 +450,7 @@ export default {
             <el-col :span="9" justify="center">
                 <div class="slider-demo-block">
                     <span class="demonstration">Size</span>
-                    <el-slider v-model="canvasLine" :step="5" :min="5" :max="51" show-stops @click="onLineChange()" />
+                    <el-slider v-model="canvasLine" :step="5" :min="5" :max="51" show-stops @input="onLineChange()" />
                 </div>
             </el-col>
         </el-row>
@@ -445,7 +468,6 @@ export default {
                     <input
                         ref="fileInput"
                         type="file"
-                        multiple
                         webkitdirectory
                         directory
                         @change="setImage"

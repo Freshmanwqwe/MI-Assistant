@@ -67,10 +67,88 @@ class EventRouter {
 const fs$1 = require("fs");
 const path$1 = require("path");
 const yaml$1 = require("js-yaml");
+function createFolder(folderPath) {
+  try {
+    if (!fs$1.existsSync(folderPath)) {
+      fs$1.mkdirSync(folderPath, { recursive: true });
+      console.log("Folder created successfully:", folderPath);
+    } else {
+      console.log("Folder already exists:", folderPath);
+    }
+  } catch (error) {
+    console.error("Error creating folder:", error);
+  }
+}
+const defaultConfig = {
+  apiKEY: "NEED_YOUR_API_KEY",
+  apiURL: "NEED_YOUR_API_URL",
+  MODEL: "NEED_YOUR_MODEL"
+};
+function ensureConfigFile() {
+  const config_file = path$1.join(configPath, "config.yml");
+  try {
+    if (!fs$1.existsSync(config_file)) {
+      console.log("Config file not found. Creating a new one...");
+      const yamlContent = yaml$1.dump(defaultConfig);
+      fs$1.writeFileSync(config_file, yamlContent, "utf8");
+      console.log("Config file created successfully.");
+    } else {
+      console.log("Config file exists:", config_file);
+    }
+  } catch (error) {
+    console.error("Error ensuring config file:", error);
+  }
+}
+function ensurePatientForlder(patient) {
+  const patient_folder = path$1.join(configPath, "info/" + patient);
+  try {
+    if (!fs$1.existsSync(patient_folder)) {
+      console.log("Patient folder not found. Creating a new one...");
+      createFolder(patient_folder);
+      console.log("Patient folder created successfully.");
+    } else {
+    }
+  } catch (error) {
+    console.error("Error ensuring patient folder:", error);
+  }
+}
+function ensureHistoryFile(patient) {
+  ensurePatientForlder(patient);
+  const history_file = path$1.join(configPath, "info/" + patient + "/history.json");
+  try {
+    if (!fs$1.existsSync(history_file)) {
+      console.log("History file not found. Creating a new one...");
+      const historyContent = JSON.stringify({});
+      fs$1.writeFileSync(history_file, historyContent, "utf8");
+      console.log("History file created successfully.");
+    } else {
+    }
+  } catch (error) {
+    console.error("Error ensuring history file:", error);
+  }
+}
+function ensureReportFile(patient) {
+  ensurePatientForlder(patient);
+  const report_file = path$1.join(configPath, "info/" + patient + "/report.json");
+  try {
+    if (!fs$1.existsSync(report_file)) {
+      console.log("Report file not found. Creating a new one...");
+      const reportContent = JSON.stringify({});
+      fs$1.writeFileSync(report_file, reportContent, "utf8");
+      console.log("Report file created successfully.");
+    } else {
+    }
+  } catch (error) {
+    console.error("Error ensuring report file:", error);
+  }
+}
+const fs = require("fs");
+const path = require("path");
+const yaml = require("js-yaml");
 async function loadExistedTestList() {
   try {
-    const files = fs$1.readdirSync(path$1.join(configPath, "test_configs").replace(" ", " "));
-    const fileNames = files.map((file) => path$1.basename(file));
+    const files = fs.readdirSync(path.join(configPath, "test_configs").replace(" ", " "));
+    const fileNames = files.map((file) => path.basename(file));
     return fileNames;
   } catch (error) {
     console.error("Error reading directory:", error);
@@ -78,14 +156,14 @@ async function loadExistedTestList() {
   }
 }
 async function loadConfig() {
-  const config_file = path$1.join(configPath, "config.yml");
+  const config_file = path.join(configPath, "config.yml");
   try {
-    if (!fs$1.existsSync(config_file)) {
+    if (!fs.existsSync(config_file)) {
       console.warn("Config file not found:", config_file);
       return {};
     }
-    const file = fs$1.readFileSync(config_file, "utf8");
-    const config = yaml$1.load(file);
+    const file = fs.readFileSync(config_file, "utf8");
+    const config = yaml.load(file);
     return config;
   } catch (error) {
     console.error("Error loading config:", error);
@@ -93,22 +171,23 @@ async function loadConfig() {
   }
 }
 async function saveConfig(config) {
-  const config_file = path$1.join(configPath, "config.yml");
+  const config_file = path.join(configPath, "config.yml");
   try {
-    const yamlContent = yaml$1.dump(config);
-    fs$1.writeFileSync(config_file, yamlContent, "utf8");
+    const yamlContent = yaml.dump(config);
+    fs.writeFileSync(config_file, yamlContent, "utf8");
   } catch (error) {
     console.error("Error ensuring config file:", error);
   }
 }
-async function loadHistory() {
-  const history_file = path$1.join(configPath, "history.json");
+async function loadHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, "info/" + data.patient + "/history.json");
   try {
-    if (!fs$1.existsSync(history_file)) {
+    if (!fs.existsSync(history_file)) {
       console.warn("History file not found:", history_file);
       return {};
     }
-    const historyContent = fs$1.readFileSync(history_file, "utf-8");
+    const historyContent = fs.readFileSync(history_file, "utf-8");
     const history = JSON.parse(historyContent);
     return history;
   } catch (error) {
@@ -116,27 +195,54 @@ async function loadHistory() {
     return {};
   }
 }
-async function saveHistory(history) {
-  const history_file = path$1.join(configPath, "history.json");
+async function saveHistory(data) {
+  ensureHistoryFile(data.patient);
+  const history_file = path.join(configPath, "info/" + data.patient + "/history.json");
   try {
-    const historyContent = JSON.stringify(history);
-    fs$1.writeFileSync(history_file, historyContent, "utf-8");
+    const historyContent = JSON.stringify(data.history);
+    fs.writeFileSync(history_file, historyContent, "utf-8");
   } catch (error) {
     console.error("Error ensuring history file:", error);
   }
 }
-async function savePoints(data) {
-  const config_file = path$1.join(configPath, "test_configs/" + data.name + ".json");
+async function loadReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, "info/" + data.patient + "/report.json");
   try {
-    fs$1.writeFileSync(config_file, data.points, "utf8");
+    if (!fs.existsSync(report_file)) {
+      console.warn("Report file not found:", report_file);
+      return {};
+    }
+    const reportContent = fs.readFileSync(report_file, "utf-8");
+    const report = JSON.parse(reportContent);
+    return report;
+  } catch (error) {
+    console.error("Error loading report:", error);
+    return {};
+  }
+}
+async function saveReport(data) {
+  ensureReportFile(data.patient);
+  const report_file = path.join(configPath, "info/" + data.patient + "/report.json");
+  try {
+    const reportContent = JSON.stringify(data.report);
+    fs.writeFileSync(report_file, reportContent, "utf-8");
+  } catch (error) {
+    console.error("Error ensuring report file:", error);
+  }
+}
+async function savePoints(data) {
+  const config_file = path.join(configPath, "test_configs/" + data.name + ".json");
+  try {
+    fs.writeFileSync(config_file, data.points, "utf8");
   } catch (error) {
     console.error("Error ensuring config file:", error);
   }
 }
 async function loadPoints(data) {
-  const config_file = path$1.join(configPath, "test_configs/" + data.teatName);
+  const config_file = path.join(configPath, "test_configs/" + data.teatName);
   try {
-    return JSON.parse(fs$1.readFileSync(config_file));
+    return JSON.parse(fs.readFileSync(config_file));
   } catch (error) {
     return { "error": true };
   }
@@ -486,7 +592,7 @@ routers.push(
     "load-history",
     "asyncevent",
     async (api, data = {}) => {
-      const history = await loadHistory();
+      const history = await loadHistory(data.data);
       return history;
     }
   )
@@ -497,6 +603,25 @@ routers.push(
     "event",
     (api, data) => {
       saveHistory(data.data);
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "load-report",
+    "asyncevent",
+    async (api, data = {}) => {
+      const report = await loadReport(data.data);
+      return report;
+    }
+  )
+);
+routers.push(
+  new EventRouter(
+    "save-report",
+    "event",
+    (api, data) => {
+      saveReport(data.data);
     }
   )
 );
@@ -562,56 +687,6 @@ routers.push(
     }
   )
 );
-const fs = require("fs");
-const path = require("path");
-const yaml = require("js-yaml");
-function createFolder(folderPath) {
-  try {
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-      console.log("Folder created successfully:", folderPath);
-    } else {
-      console.log("Folder already exists:", folderPath);
-    }
-  } catch (error) {
-    console.error("Error creating folder:", error);
-  }
-}
-const defaultConfig = {
-  apiKEY: "NEED_YOUR_API_KEY",
-  apiURL: "NEED_YOUR_API_URL",
-  MODEL: "NEED_YOUR_MODEL"
-};
-function ensureConfigFile() {
-  const config_file = path.join(configPath, "config.yml");
-  try {
-    if (!fs.existsSync(config_file)) {
-      console.log("Config file not found. Creating a new one...");
-      const yamlContent = yaml.dump(defaultConfig);
-      fs.writeFileSync(config_file, yamlContent, "utf8");
-      console.log("Config file created successfully.");
-    } else {
-      console.log("Config file exists:", config_file);
-    }
-  } catch (error) {
-    console.error("Error ensuring config file:", error);
-  }
-}
-function ensureHistoryFile() {
-  const history_file = path.join(configPath, "history.json");
-  try {
-    if (!fs.existsSync(history_file)) {
-      console.log("History file not found. Creating a new one...");
-      const yamlContent = yaml.dump(defaultConfig);
-      fs.writeFileSync(history_file, yamlContent, "utf8");
-      console.log("History file created successfully.");
-    } else {
-      console.log("History file exists:", history_file);
-    }
-  } catch (error) {
-    console.error("Error ensuring history file:", error);
-  }
-}
 const basePath = electron.app.isPackaged ? electron.app.getAppPath() : __dirname;
 const configPath = path$2.join(electron.app.getPath("appData"), ".medai");
 const existedWindows = /* @__PURE__ */ new Map();
