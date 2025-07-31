@@ -694,7 +694,7 @@ function initRunning() {
   createFolder(configPath);
   createFolder(path$2.join(configPath, "test_configs"));
   ensureConfigFile();
-  ensureHistoryFile();
+  ensureHistoryFile("blank");
 }
 function createWindow() {
   const mainWindow = new electron.BrowserWindow({
