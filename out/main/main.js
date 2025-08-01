@@ -469,7 +469,11 @@ function createConfigWindow() {
   if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     configWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/config");
   } else {
-    configWindow.loadFile(resolve(path$2.join(__dirname, "../renderer/index.html#/config")));
+    configWindow.loadFile(path$2.resolve(path$2.join(__dirname, "../renderer/index.html"))).then(() => {
+      configWindow.webContents.executeJavaScript(`
+                window.location.hash = '#/config';
+            `);
+    });
   }
   existedWindows.set("config", configWindow);
   configWindow.on("closed", () => {
@@ -513,7 +517,11 @@ function createAddCatWindow() {
   if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     addCatWindow.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/addcat");
   } else {
-    addCatWindow.loadFile(resolve(path$2.join(__dirname, "../renderer/index.html#/addcat")));
+    addCatWindow.loadFile(path$2.resolve(path$2.join(__dirname, "../renderer/index.html"))).then(() => {
+      addCatWindow.webContents.executeJavaScript(`
+                window.location.hash = '#/addcat';
+            `);
+    });
   }
   existedWindows.set("addcat", addCatWindow);
   addCatWindow.on("closed", () => {

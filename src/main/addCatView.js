@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { resolve, join } from 'path'
 
 import { shell, BrowserWindow, ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
@@ -49,7 +49,7 @@ export function createAddCatWindow () {
         addCatWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + "#/addcat")
     } else {
         // addCatWindow.loadFile(resolve(join(__dirname, '../renderer/index.html#/addcat')))
-        addCatWindow.loadFile(path.resolve(path.join(__dirname, '../renderer/index.html')))
+        addCatWindow.loadFile(resolve(join(__dirname, '../renderer/index.html')))
         .then(() => {
             // Navigate to the hash route after the file loads
             addCatWindow.webContents.executeJavaScript(`

@@ -1,4 +1,4 @@
-import { join } from 'path'
+import { join, resolve } from 'path'
 
 import { shell, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
@@ -48,7 +48,14 @@ export function createConfigWindow () {
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
         configWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + "#/config")
     } else {
-        configWindow.loadFile(resolve(join(__dirname, '../renderer/index.html#/config')))
+        // configWindow.loadFile(resolve(join(__dirname, '../renderer/index.html#/config')))
+        configWindow.loadFile(resolve(join(__dirname, '../renderer/index.html')))
+        .then(() => {
+            // Navigate to the hash route after the file loads
+            configWindow.webContents.executeJavaScript(`
+                window.location.hash = '#/config';
+            `);
+        });
     }
 
     existedWindows.set("config", configWindow)

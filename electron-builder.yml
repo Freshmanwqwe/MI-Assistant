@@ -13,7 +13,7 @@ asarUnpack:
   - resources/**
 # afterSign: public/notarize.js
 win:
-  executableName: vue-ts
+  executableName: Miaa
   icon: public/eus.ico
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
